@@ -60,6 +60,37 @@ describe("FloodSight command center", () => {
     expect(orderedIds).toEqual(["ZONE-2", "ZONE-4", "ZONE-1"]);
   });
 
+  it("offers all media sources while keeping simulation as the functional default", () => {
+    render(<CommandCenter />);
+
+    const selector = screen.getByRole("group", { name: "Media source selector" });
+    expect(within(selector).getByRole("button", { name: /Simulation/ })).toHaveAttribute("aria-pressed", "true");
+    expect(within(selector).getByRole("button", { name: /Video file/ })).toBeEnabled();
+    expect(within(selector).getByRole("button", { name: /Webcam/ })).toBeEnabled();
+    expect(screen.getByLabelText("Simulation controls")).toBeInTheDocument();
+  });
+
+  it("labels actual local media honestly and removes the simulated observation overlay", () => {
+    const createObjectURL = vi.fn(() => "blob:local-flood-video");
+    const revokeObjectURL = vi.fn();
+    Object.defineProperties(URL, {
+      createObjectURL: { configurable: true, value: createObjectURL },
+      revokeObjectURL: { configurable: true, value: revokeObjectURL },
+    });
+    render(<CommandCenter />);
+    fireEvent.click(screen.getByRole("button", { name: /Video file/ }));
+    const input = screen.getByLabelText("Choose video");
+    const file = new File(["local"], "incident.webm", { type: "video/webm" });
+    fireEvent.change(input, { target: { files: [file] } });
+
+    expect(createObjectURL).toHaveBeenCalledWith(file);
+    expect(screen.getByLabelText("Media origin: USER_VIDEO_FILE")).toBeInTheDocument();
+    expect(screen.getByText(/SIMULATED ANALYTICS — NOT DERIVED FROM CURRENT VIDEO/)).toBeInTheDocument();
+    expect(screen.getByText("No simulated overlay")).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Normalized simulated flood observation/)).not.toBeInTheDocument();
+    expect(screen.getByText("42%")).toBeInTheDocument();
+  });
+
   it("reorders rescue cards when a later backend snapshot changes rank", () => {
     const { rerender } = render(<CommandCenter />);
     vi.mocked(useDemoIncident).mockReturnValue({

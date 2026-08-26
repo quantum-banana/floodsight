@@ -3,10 +3,13 @@ import { useCallback, useMemo, useState } from "react";
 import { ConnectionIndicator } from "../../components/ConnectionIndicator";
 import { Icon } from "../../components/Icon";
 import { useDemoIncident } from "../../hooks/useDemoIncident";
+import { useFrameIngestion } from "../../hooks/useFrameIngestion";
+import { useMediaSource } from "../../hooks/useMediaSource";
 import { EventTimeline } from "../events/EventTimeline";
 import { ApplicationHeader } from "../incident/ApplicationHeader";
 import { IncidentOverview } from "../incident/IncidentOverview";
 import { SimulationControls } from "../incident/SimulationControls";
+import { MediaSourceSelector } from "../media/MediaSourceSelector";
 import { ObservationPanel } from "../observation/ObservationPanel";
 import { PriorityList } from "../priorities/PriorityList";
 import { ZoneDetailsDrawer } from "../priorities/ZoneDetailsDrawer";
@@ -17,6 +20,15 @@ import { CommandLoadingState, CommandOfflineState } from "./CommandStates";
 
 export function CommandCenter() {
   const demo = useDemoIncident();
+  const media = useMediaSource();
+  const ingestion = useFrameIngestion({
+    videoElement: media.videoElement,
+    sourceMode: media.mode === "SIMULATION" ? null : media.mode,
+    mediaOrigin: media.mediaOrigin,
+    sourceReady: media.readyForIngestion,
+    captureActive: media.isPlaying,
+    sourceGeneration: media.generation,
+  });
   const [layers, setLayers] = useState<LayerState>(DEFAULT_LAYERS);
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
@@ -51,10 +63,21 @@ export function CommandCenter() {
       <main className="relative mx-auto max-w-[1600px] px-3 py-3 sm:px-4 lg:px-5">
         <div aria-hidden="true" className="command-grid-bg pointer-events-none fixed inset-0 opacity-30" />
 
-        <section className="relative mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/[0.06] bg-[#0a161d]/88 px-3 py-2.5 backdrop-blur sm:px-4" aria-label="Simulation status and controls">
+        <MediaSourceSelector media={media} ingestion={ingestion} />
+
+        {media.mode === "SIMULATION" && <section className="relative mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/[0.06] bg-[#0a161d]/88 px-3 py-2.5 backdrop-blur sm:px-4" aria-label="Simulation status and controls">
           <div className="flex items-center gap-3"><div className="sm:hidden"><ConnectionIndicator state={demo.connectionState} /></div><div className="hidden sm:block"><p className="text-[0.62rem] font-semibold tracking-[0.15em] text-slate-600 uppercase">Deterministic incident replay</p><p className="mt-0.5 text-xs text-slate-400">Six fixed snapshots · No ML inference</p></div></div>
           <SimulationControls state={demo.connectionState} snapshotIndex={snapshot.snapshot_index} snapshotCount={snapshot.snapshot_count} onStart={demo.start} onPause={demo.pause} onResume={demo.resume} onReset={demo.reset} />
-        </section>
+        </section>}
+
+        {media.error && <StatusBanner tone="critical" message={media.error} />}
+        {ingestion.metrics.lastError && media.mode !== "SIMULATION" && (
+          <StatusBanner
+            tone={ingestion.metrics.connectionState === "offline" ? "critical" : "warning"}
+            message={ingestion.metrics.lastError}
+            action={ingestion.retry}
+          />
+        )}
 
         {demo.connectionState === "reconnecting" && <StatusBanner tone="warning" message="Stream interrupted. Reconnecting to the next deterministic snapshot…" />}
         {degraded && <StatusBanner tone="critical" message={`${demo.error ?? "The stream is unavailable."} Current values are retained from the last valid backend message; no local values were substituted.`} action={demo.retry} />}
@@ -62,7 +85,7 @@ export function CommandCenter() {
         {demo.connectionState === "complete" && <StatusBanner tone="success" message="Deterministic replay complete. Reset or resume to replay the scenario." />}
 
         <div className="relative grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1.7fr)_22rem]">
-          <ObservationPanel snapshot={snapshot} layers={layers} selectedZoneId={selectedZoneId} onToggleLayer={toggleLayer} onSelectZone={setSelectedZoneId} />
+          <ObservationPanel snapshot={snapshot} layers={layers} selectedZoneId={selectedZoneId} onToggleLayer={toggleLayer} onSelectZone={setSelectedZoneId} mediaMode={media.mode} mediaOrigin={media.mediaOrigin} mediaVideoSrc={media.videoSrc} mediaStream={media.stream} bindVideoElement={media.bindVideoElement} onMediaLoadedMetadata={media.onLoadedMetadata} onMediaEnded={media.onEnded} ingestion={ingestion} />
           <IncidentOverview snapshot={snapshot} connectionState={demo.connectionState} />
         </div>
 
@@ -72,7 +95,7 @@ export function CommandCenter() {
         </div>
 
         <div className="relative mt-3"><EventTimeline events={snapshot.events} /></div>
-        <footer className="relative flex flex-wrap items-center justify-between gap-3 px-1 py-5 text-[0.62rem] tracking-[0.12em] text-slate-700 uppercase"><span>Decision support · Human authority retained</span><span>Phase 1 · Deterministic simulation · No inference</span></footer>
+        <footer className="relative flex flex-wrap items-center justify-between gap-3 px-1 py-5 text-[0.62rem] tracking-[0.12em] text-slate-700 uppercase"><span>Decision support · Human authority retained</span><span>Phase 2 · Browser frame ingestion · No inference</span></footer>
       </main>
 
       <ZoneDetailsDrawer zone={selectedZone} onClose={() => setSelectedZoneId(null)} onFocusMap={focusMap} />

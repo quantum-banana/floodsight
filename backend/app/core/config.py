@@ -21,6 +21,14 @@ class Settings(BaseSettings):
     port: int = Field(default=8000, ge=1, le=65535)
     log_level: str = "INFO"
     demo_stream_interval_ms: int = Field(default=1_400, ge=100, le=60_000)
+    ingest_capture_fps: float = Field(default=4.0, ge=1, le=10)
+    ingest_jpeg_quality: float = Field(default=0.75, ge=0.5, le=0.95)
+    ingest_max_frame_bytes: int = Field(default=2_000_000, ge=50_000, le=10_000_000)
+    ingest_max_sessions: int = Field(default=24, ge=1, le=256)
+    ingest_session_ttl_seconds: int = Field(default=900, ge=30, le=86_400)
+    ingest_dark_luminance_threshold: float = Field(default=35.0, ge=0, le=255)
+    ingest_bright_luminance_threshold: float = Field(default=220.0, ge=0, le=255)
+    ingest_blur_variance_threshold: float = Field(default=60.0, ge=0)
     cors_origins: list[str] = [
         "http://127.0.0.1:5173",
         "http://localhost:5173",
@@ -41,6 +49,14 @@ class Settings(BaseSettings):
             if not origin.startswith(("http://", "https://")):
                 raise ValueError("CORS origins must be absolute HTTP(S) origins")
         return values
+
+    @field_validator("ingest_bright_luminance_threshold")
+    @classmethod
+    def validate_brightness_thresholds(cls, value: float, info: object) -> float:
+        dark = getattr(info, "data", {}).get("ingest_dark_luminance_threshold", 35.0)
+        if value <= dark:
+            raise ValueError("bright luminance threshold must exceed the dark threshold")
+        return value
 
 
 @lru_cache

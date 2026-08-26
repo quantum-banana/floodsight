@@ -1,0 +1,12 @@
+{
+  "type": "frame_metadata",
+  "frame_id": 12,
+  "captured_at_ms": 1725000002990,
+  "media_time_ms": 2250,
+  "source_mode": "VIDEO_FILE",
+  "media_origin": "USER_VIDEO_FILE",
+  "mime_type": "image/jpeg",
+  "byte_length": 48291,
+  "width": 1280,
+  "height": 720
+}

@@ -1,0 +1,24 @@
+{
+  "session_id": "BByh6J3CzRKOVW05rlGxjWVTQ8LviuNL",
+  "source_mode": "VIDEO_FILE",
+  "media_origin": "USER_VIDEO_FILE",
+  "state": "READY",
+  "created_at_ms": 1725000000000,
+  "last_activity_at_ms": 1725000000000,
+  "expires_at_ms": 1725000900000,
+  "counters": {
+    "frames_received": 0,
+    "frames_accepted": 0,
+    "frames_rejected": 0,
+    "frames_out_of_order": 0,
+    "protocol_errors": 0,
+    "bytes_received": 0
+  },
+  "limits": {
+    "recommended_capture_fps": 4.0,
+    "jpeg_quality": 0.75,
+    "max_frame_bytes": 2000000,
+    "accepted_mime_types": ["image/jpeg"]
+  },
+  "data_origin": "DERIVED_ANALYTIC"
+}

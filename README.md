@@ -2,69 +2,50 @@
 
 **From Drone Pixels to Rescue Decisions**
 
-FloodSight is a flood-response decision-intelligence platform for emergency command-centre personnel. Phase 1 provides a complete, judge-facing command-centre experience driven by one deterministic simulated incident. It demonstrates the product flow from disaster evidence to rescue priorities, explanations, relative access intelligence, events, and an incident report.
+FloodSight is a flood-response decision-intelligence prototype. Phase 2 adds real browser video-file and webcam ingestion to the verified Phase 1 command centre. The browser previews the chosen source, samples JPEG frames through one shared canvas pipeline, and sends only those frames to FastAPI for OpenCV decode and basic image-quality checks.
 
-All operational values in this phase are visibly and structurally labelled `DEMO_SIMULATED`. No video processing, real model inference, GIS, or autonomous dispatch is implemented.
+This phase does **not** perform machine-learning inference. Incident statistics, detections, flood masks, zones, routes, events, and reports remain the deterministic `DEMO_SIMULATED` Phase 1 scenario. On actual media, those analytics are visibly separated from the video and no simulated overlays are drawn over it.
 
-## Phase 1 architecture
+## Architecture
 
 ```text
-FastAPI deterministic scenario service
-  ├─ REST: incident metadata, latest state, and report
-  ├─ WebSocket: six ordered, schema-valid snapshots
-  └─ Pydantic live-result contract
-                  │
-                  ├─ shared JSON Schema + example
-                  │
-                  ▼
-React + strict TypeScript command centre
-  ├─ scalable SVG observation overlays
-  ├─ ranked rescue zones and explanation drawer
-  ├─ relative tactical map and route
-  ├─ bounded incident event timeline
-  ├─ current-state report
-  └─ Phase 0 diagnostics at /system
+Local video file ─┐
+                  ├─ HTMLVideoElement → shared canvas → bounded JPEG frames
+Webcam stream ────┘                         │
+                                           │ metadata JSON, then binary JPEG
+                                           ▼
+FastAPI ingestion session → OpenCV BGR decode → luminance/blur quality result
+        │                                      (DERIVED_ANALYTIC)
+        └─ bounded, expiring counters only; no raw frame persistence
+
+FastAPI deterministic incident REST/WebSocket → Phase 1 command-centre analytics
+                                                (DEMO_SIMULATED)
 ```
 
-The live-result contract is synchronized across:
+The ingestion contract is synchronized across:
 
-- `shared/schemas/live-result.schema.json` — language-neutral JSON Schema;
-- `shared/examples/live-result.sample.json` — minimal compatible example;
-- `backend/app/schemas/live_result.py` — strict Pydantic models;
-- `frontend/src/types/liveResult.ts` — strict TypeScript interfaces.
+- `shared/schemas/ingest-session.schema.json` and `frame-result.schema.json`;
+- `shared/examples/ingest-session.sample.json`, `frame-metadata.sample.json`, and `frame-result.sample.json`;
+- `backend/app/schemas/ingestion.py` strict Pydantic models;
+- `frontend/src/types/ingestion.ts` strict TypeScript interfaces.
 
-Normalized coordinates remain in the repository's established `0–1` range. The UI maps them into responsive SVG view boxes and never presents them as geographic coordinates or real-world distance.
+The established live-result contract and all Phase 0/1 routes remain compatible.
 
-## Deterministic incident
-
-Phase 1 contains one reproducible six-snapshot scenario:
-
-- ID: `FS-001`
-- title: `Riverside Ward Flood Response`
-- source mode: `SIMULATION`
-- coordinate space: `RELATIVE_TACTICAL`
-- provenance: `DEMO_SIMULATED`
-
-The stable final snapshot has CRITICAL incident severity, 42% simulated flood coverage, 6 people, 4 vehicles, 2 blocked roads, and 5 damaged buildings. Its supplied rescue ranking is Zone 2 at 92, Zone 4 at 76, and Zone 1 at 54. These values and score contributions are fixture data, not outputs from a real priority engine.
-
-## Prerequisites
+## Prerequisites and setup
 
 - Python 3.11 or newer;
 - Node.js 20.19+, 22.12+, or newer and npm;
-- Git;
-- PowerShell 5.1+ on Windows, or a POSIX-compatible shell on Linux/macOS.
+- a modern browser with Canvas, Blob, and WebSocket support;
+- camera permission for webcam mode.
 
-Docker, GPU tooling, model weights, map tiles, and runtime internet access are not required.
-
-## Setup
-
-Windows PowerShell, from the repository root:
+Windows PowerShell:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
 Copy-Item .env.example .env
 Copy-Item frontend\.env.example frontend\.env.local
 .\scripts\setup.ps1
+.\scripts\dev.ps1
 ```
 
 Linux/macOS:
@@ -74,157 +55,97 @@ cp .env.example .env
 cp frontend/.env.example frontend/.env.local
 chmod +x scripts/*.sh
 ./scripts/setup.sh
+./scripts/dev.sh
 ```
 
-## Start Phase 1
+Open:
 
-Run both services:
+- command centre: `http://127.0.0.1:5173/`;
+- diagnostics: `http://127.0.0.1:5173/system`;
+- API docs: `http://127.0.0.1:8000/docs`.
+
+## Using media inputs
+
+The command-centre source selector provides:
+
+- **Simulation** — the verified deterministic six-snapshot replay;
+- **Video file** — choose a browser-playable local MP4/WebM and use Play, Pause/Resume, or Stop/Reset;
+- **Webcam** — start a video-only camera request, then Pause/Resume or Stop.
+
+The original file is represented by a browser object URL and is never uploaded as a whole. Webcam requests use `audio: false`; no microphone is requested. Source switching and unmounting revoke object URLs, stop every camera track, close the frame WebSocket, and delete the server session.
+
+Capture defaults are 4 FPS, JPEG quality `0.75`, and a 1280×720 bound while retaining aspect ratio. At most one frame awaits acknowledgement. Capture opportunities encountered during that wait are counted as client drops instead of creating an unbounded queue.
+
+## Ingestion API and protocol
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| POST | `/api/ingest/sessions` | Create a `VIDEO_FILE` or `WEBCAM` session |
+| GET | `/api/ingest/sessions/{session_id}` | Read state, limits, and counters |
+| DELETE | `/api/ingest/sessions/{session_id}` | Idempotently stop and forget a session |
+| WS | `/ws/ingest/sessions/{session_id}/frames` | Send frame metadata/binary pairs and receive results |
+
+For every frame, the client sends exactly:
+
+1. one `frame_metadata` JSON text message;
+2. one binary JPEG message;
+3. waits for one `frame_result` JSON acknowledgement before sending another frame.
+
+The backend rejects unsupported MIME types, oversized or mismatched payloads, invalid JPEGs, mismatched dimensions/provenance, duplicate or out-of-order IDs, and invalid message order. Valid low-quality frames are accepted with explicit dark/bright/blurry warnings. Only session metadata and counters live in process memory; encoded bytes, decoded arrays, and original media are not stored.
+
+## Provenance
+
+- `USER_VIDEO_FILE` / `USER_WEBCAM`: where actual media came from;
+- `DERIVED_ANALYTIC`: decoded dimensions, byte counts, timing, luminance, and Laplacian blur variance;
+- `DEMO_SIMULATED`: all incident analysis currently shown in the command centre;
+- `REAL_ML_OUTPUT`, `GIS_EXTERNAL_DATA`, and `HUMAN_VERIFIED`: reserved and not emitted by this phase.
+
+Segmentation and detection remain `not_configured`. No PyTorch, model checkpoint, dataset, training code, inference pipeline, real GIS, rescue scoring, or autonomous dispatch was added.
+
+## Configuration
+
+Backend `FLOODSIGHT_` settings include session TTL/capacity, maximum frame bytes, recommended FPS/JPEG quality, and quality thresholds. Frontend `VITE_` settings include REST/WebSocket URLs, file-size limit, capture rate, JPEG quality, and capture bounds. See both `.env.example` files.
+
+## Verification
 
 ```powershell
-.\scripts\dev.ps1
+.\scripts\check.ps1
+git diff --check
 ```
 
 or:
 
 ```bash
-./scripts/dev.sh
-```
-
-Development URLs:
-
-- command centre: `http://127.0.0.1:5173/`
-- system diagnostics: `http://127.0.0.1:5173/system`
-- backend health: `http://127.0.0.1:8000/health`
-- API documentation: `http://127.0.0.1:8000/docs`
-- demo WebSocket: `ws://127.0.0.1:8000/ws/demo/incidents/FS-001/live`
-
-The command centre loads the first snapshot through REST and connects to the deterministic WebSocket stream. Use Start, Pause, Resume, and Reset in the replay bar. The report and diagnostics actions are in the application header. The interface never substitutes local incident values if the backend is unavailable.
-
-To start each service separately on Windows:
-
-```powershell
-Push-Location backend
-..\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
-Pop-Location
-
-Push-Location frontend
-npm.cmd run dev -- --host 127.0.0.1
-Pop-Location
-```
-
-## Demo API
-
-| Method | Path | Purpose |
-| --- | --- | --- |
-| GET | `/health` | Service readiness |
-| GET | `/api/models/status` | Honest `not_configured` model state |
-| GET | `/api/demo/live-result` | Preserved Phase 0 contract preview |
-| GET | `/api/demo/incidents` | Deterministic incident list |
-| GET | `/api/demo/incidents/FS-001` | Incident metadata plus initial/latest snapshots |
-| GET | `/api/demo/incidents/FS-001/report` | Report-ready final state |
-| WS | `/ws/demo/incidents/FS-001/live` | Ordered snapshot replay |
-
-The WebSocket accepts optional `start_index`, `interval_ms`, and `loop` query parameters. The default interval comes from `FLOODSIGHT_DEMO_STREAM_INTERVAL_MS`.
-
-## Verification
-
-Run the complete suite:
-
-```powershell
-.\scripts\check.ps1
-```
-
-```bash
 ./scripts/check.sh
+git diff --check
 ```
 
-Equivalent Windows commands:
+The suites programmatically generate JPEG fixtures and mock camera, media element, object URL, canvas, timer, and WebSocket behavior. They require neither committed video fixtures nor a physical webcam.
 
-```powershell
-.\.venv\Scripts\python.exe -m ruff check backend\app backend\tests
-.\.venv\Scripts\python.exe -m pytest backend\tests
-npm.cmd --prefix frontend run lint
-npm.cmd --prefix frontend run test
-npm.cmd --prefix frontend run build
-```
+## Troubleshooting
 
-Backend tests validate every deterministic snapshot against JSON Schema, provenance, stable zone/event IDs, REST errors, and WebSocket order. Frontend tests cover dashboard states, ranking changes, zone details, layers, reports, diagnostics, and a deterministic WebSocket mock.
+### Camera permission is denied
 
-## Environment configuration
+Camera access requires a secure context (`https://` or localhost). Allow camera access for the site, close applications already using the camera, and retry. Stop returns all acquired tracks to the browser.
 
-Backend variables use the `FLOODSIGHT_` prefix. The root `.env.example` documents host, port, logging, CORS origins, and demo interval. The application reads the root `.env` and `backend/.env` when present.
+### A selected video will not play
 
-Frontend variables are documented in `frontend/.env.example`:
+Browser support depends on its container and codecs. Try a standard H.264/AAC MP4 or VP8/VP9 WebM. The file extension alone does not guarantee codec support. No server-side transcoding occurs.
 
-- `VITE_API_BASE_URL` — REST API base URL;
-- `VITE_WS_BASE_URL` — WebSocket base URL;
-- `VITE_DEV_PROXY_TARGET` — Vite REST/WebSocket proxy target.
+### Ingestion is offline or acknowledgements time out
 
-Use `frontend/.env.local` for machine-specific values and never commit it.
+Verify `/health`, `VITE_API_BASE_URL`, and `VITE_WS_BASE_URL`. For local development, use matching `http`/`ws` or `https`/`wss` schemes. Reverse proxies must upgrade `/ws`. The UI stops queuing after one unacknowledged frame and exposes the error in command-centre and diagnostics views.
 
-## Truth and provenance labels
+### CORS fails
 
-- `DEMO_SIMULATED` — synthetic Phase 1 scenario data;
-- `REAL_ML_OUTPUT` — reserved for a direct configured model output;
-- `DERIVED_ANALYTIC` — reserved for a declared deterministic calculation;
-- `GIS_EXTERNAL_DATA` — reserved for external geographic data;
-- `HUMAN_VERIFIED` — reserved for an authorized human confirmation.
-
-Phase 1 only emits `DEMO_SIMULATED`. Segmentation is explicitly `simulated`; SegFormer and YOLO remain `not_configured`.
-
-## Implemented and out of scope
-
-Phase 1 implements the responsive command-centre UI, deterministic REST/WebSocket replay, simulated SVG overlays, supplied ranked zones and explanations, relative route view, bounded events, report/copy/print actions, explicit connection states, and preserved system diagnostics.
-
-Still unimplemented:
-
-- video upload, decoding, webcam, or actual drone streaming;
-- OpenCV ingestion or temporal scene fusion;
-- datasets, training, SegFormer, YOLO, PyTorch, or real inference;
-- real rescue-zone generation or priority calculation;
-- real GIS, map distances, travel times, or route optimization;
-- autonomous dispatch or an LLM assistant.
+Add the exact frontend scheme, host, and port to `FLOODSIGHT_CORS_ORIGINS`. `localhost` and `127.0.0.1` are different origins.
 
 ## Roadmap
 
 | Phase | Scope | Status |
 | --- | --- | --- |
 | 0 | Repository foundation and frontend/backend connectivity | Complete |
-| 1 | Complete command-centre UI with deterministic simulated data | Complete |
-| 2 | Unified video-file and webcam ingestion | Planned |
+| 1 | Command-centre UI with deterministic simulated data | Complete |
+| 2 | Unified video-file and webcam frame ingestion | Implemented, pending freeze |
 | 3 | Dataset validation, inspection, and taxonomy mapping | Planned |
-| 4 | SegFormer segmentation training and evaluation | Planned |
-| 5 | YOLO aerial detection training and evaluation | Planned |
-| 6 | Real-time model inference integration | Planned |
-| 7 | Rescue-zone generation and temporal stability | Planned |
-| 8 | Explainable deterministic priority engine | Planned |
-| 9 | Tactical intelligence, routing, events, and reports | Planned |
-| 10 | Demo hardening, tuning, fallback, and reliability | Planned |
-
-## Troubleshooting
-
-### PowerShell blocks npm or project scripts
-
-Use `Set-ExecutionPolicy -Scope Process Bypass` for the current shell. Repository scripts invoke `npm.cmd`, avoiding the commonly blocked `npm.ps1` shim.
-
-### The command centre says the backend is offline
-
-Open `http://127.0.0.1:8000/health`, verify `VITE_API_BASE_URL`, and confirm the frontend origin is present in `FLOODSIGHT_CORS_ORIGINS`. Restart both services after environment changes.
-
-### The stream remains reconnecting or disconnected
-
-Confirm `VITE_WS_BASE_URL` uses `ws://` for HTTP development and `wss://` for HTTPS. If the frontend host or backend port changed, update both the WebSocket URL and Vite proxy target. A reverse proxy must support WebSocket upgrade requests on `/ws`.
-
-### Browser reports CORS or origin failures
-
-Keep the exact scheme, host, and port in `FLOODSIGHT_CORS_ORIGINS`; `localhost` and `127.0.0.1` are different origins. REST CORS configuration does not repair a blocked or misrouted WebSocket upgrade, so inspect the WebSocket request separately.
-
-### Shared-schema validation fails
-
-Run:
-
-```powershell
-.\.venv\Scripts\python.exe -m pytest backend\tests\test_shared_schema.py -vv
-```
-
-Keep the JSON Schema, Pydantic models, TypeScript interfaces, examples, and scenario snapshots aligned.
+| 4–10 | Model training, inference, rescue intelligence, and hardening | Planned |

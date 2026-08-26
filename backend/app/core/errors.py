@@ -38,11 +38,16 @@ def register_exception_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(RequestValidationError)
     async def handle_validation_error(_: Request, exc: RequestValidationError) -> JSONResponse:
+        details = exc.errors()
+        for detail in details:
+            context = detail.get("ctx")
+            if isinstance(context, dict):
+                detail["ctx"] = {key: str(value) for key, value in context.items()}
         return _response(
             422,
             "validation_error",
             "The request did not match the API contract.",
-            exc.errors(),
+            details,
         )
 
     @app.exception_handler(StarletteHTTPException)

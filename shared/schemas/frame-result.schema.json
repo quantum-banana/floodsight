@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://floodsight.local/schemas/frame-result.schema.json",
+  "title": "FloodSight frame result",
+  "description": "Acknowledgement for one transient browser-captured JPEG frame.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "type",
+    "session_id",
+    "frame_id",
+    "accepted",
+    "code",
+    "message",
+    "received_at_ms",
+    "processing_ms",
+    "byte_length",
+    "decoded_frame",
+    "quality",
+    "data_origin"
+  ],
+  "properties": {
+    "type": { "const": "frame_result" },
+    "session_id": { "type": "string", "minLength": 1 },
+    "frame_id": { "type": ["integer", "null"], "minimum": 0 },
+    "accepted": { "type": "boolean" },
+    "code": { "type": "string", "minLength": 1 },
+    "message": { "type": "string", "minLength": 1 },
+    "received_at_ms": { "type": "integer", "minimum": 0 },
+    "processing_ms": { "type": "number", "minimum": 0 },
+    "byte_length": { "type": "integer", "minimum": 0 },
+    "decoded_frame": {
+      "oneOf": [{ "$ref": "#/$defs/decodedFrame" }, { "type": "null" }]
+    },
+    "quality": {
+      "oneOf": [{ "$ref": "#/$defs/quality" }, { "type": "null" }]
+    },
+    "data_origin": { "const": "DERIVED_ANALYTIC" }
+  },
+  "$defs": {
+    "decodedFrame": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width", "height", "channels"],
+      "properties": {
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 },
+        "channels": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "quality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mean_luminance",
+        "laplacian_variance",
+        "brightness_status",
+        "sharpness_status",
+        "warnings",
+        "data_origin"
+      ],
+      "properties": {
+        "mean_luminance": { "type": "number", "minimum": 0, "maximum": 255 },
+        "laplacian_variance": { "type": "number", "minimum": 0 },
+        "brightness_status": { "type": "string", "enum": ["NORMAL", "DARK", "BRIGHT"] },
+        "sharpness_status": { "type": "string", "enum": ["NORMAL", "BLURRY"] },
+        "warnings": { "type": "array", "items": { "type": "string" } },
+        "data_origin": { "const": "DERIVED_ANALYTIC" }
+      }
+    }
+  }
+}

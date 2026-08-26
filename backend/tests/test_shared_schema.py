@@ -4,6 +4,7 @@ from typing import Any
 
 from jsonschema import Draft202012Validator
 
+from app.schemas.ingestion import FrameMetadata, FrameResult, IngestionSession
 from app.schemas.live_result import LiveResult
 from app.services.demo_incident import get_demo_snapshots
 
@@ -51,3 +52,29 @@ def test_demo_identifiers_are_stable_and_provenance_is_explicit() -> None:
             previous = seen_event_payloads.setdefault(event.event_id, event.message)
             assert previous == event.message
             assert event.data_origin.value == "DEMO_SIMULATED"
+
+
+def test_ingestion_examples_validate_against_shared_schemas_and_pydantic() -> None:
+    contracts = (
+        (
+            PROJECT_ROOT / "shared" / "schemas" / "ingest-session.schema.json",
+            PROJECT_ROOT / "shared" / "examples" / "ingest-session.sample.json",
+            IngestionSession,
+        ),
+        (
+            PROJECT_ROOT / "shared" / "schemas" / "frame-result.schema.json",
+            PROJECT_ROOT / "shared" / "examples" / "frame-result.sample.json",
+            FrameResult,
+        ),
+    )
+    for schema_path, example_path, model in contracts:
+        schema = _read_json(schema_path)
+        example = _read_json(example_path)
+        Draft202012Validator.check_schema(schema)
+        Draft202012Validator(schema).validate(example)
+        model.model_validate(example)
+
+    metadata = _read_json(
+        PROJECT_ROOT / "shared" / "examples" / "frame-metadata.sample.json"
+    )
+    FrameMetadata.model_validate(metadata)

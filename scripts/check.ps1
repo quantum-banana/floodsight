@@ -40,4 +40,4 @@ try {
     Pop-Location
 }
 
-Write-Host "All FloodSight Phase 1 checks passed." -ForegroundColor Green
+Write-Host "All FloodSight Phase 2 checks passed." -ForegroundColor Green

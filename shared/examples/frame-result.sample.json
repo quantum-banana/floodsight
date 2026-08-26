@@ -1,0 +1,25 @@
+{
+  "type": "frame_result",
+  "session_id": "BByh6J3CzRKOVW05rlGxjWVTQ8LviuNL",
+  "frame_id": 12,
+  "accepted": true,
+  "code": "accepted",
+  "message": "Frame decoded and accepted.",
+  "received_at_ms": 1725000003000,
+  "processing_ms": 3.4,
+  "byte_length": 48291,
+  "decoded_frame": {
+    "width": 1280,
+    "height": 720,
+    "channels": 3
+  },
+  "quality": {
+    "mean_luminance": 112.7,
+    "laplacian_variance": 188.2,
+    "brightness_status": "NORMAL",
+    "sharpness_status": "NORMAL",
+    "warnings": [],
+    "data_origin": "DERIVED_ANALYTIC"
+  },
+  "data_origin": "DERIVED_ANALYTIC"
+}

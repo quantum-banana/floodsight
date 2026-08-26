@@ -1,6 +1,7 @@
 import { OriginBadge } from "../../components/OriginBadge";
 import { StatusCard } from "../../components/StatusCard";
 import type { SystemSnapshot } from "../../types/api";
+import { IngestionDiagnosticsPanel } from "../diagnostics/IngestionDiagnosticsPanel";
 
 interface SystemStatusScreenProps {
   snapshot: SystemSnapshot;
@@ -72,7 +73,7 @@ export function SystemStatusScreen({ snapshot }: SystemStatusScreenProps) {
           </div>
           <div className="flex items-center gap-3">
             <a href="/" className="command-button command-button-secondary">Command center</a>
-            <span className="hidden text-[0.68rem] font-semibold tracking-[0.18em] text-slate-600 uppercase sm:inline">Diagnostics · Phase 1</span>
+            <span className="hidden text-[0.68rem] font-semibold tracking-[0.18em] text-slate-600 uppercase sm:inline">Diagnostics · Phase 2</span>
             <span className="rounded-full border border-emerald-400/20 bg-emerald-400/[0.08] px-3 py-1.5 text-[0.68rem] font-bold tracking-[0.16em] text-emerald-300 uppercase">System online</span>
           </div>
         </header>
@@ -90,6 +91,8 @@ export function SystemStatusScreen({ snapshot }: SystemStatusScreenProps) {
             <StatusCard label="Segmentation model" value={formatModelState(models.segmentation.status)} detail="SegFormer integration is a later phase" tone="pending" icon={<ModelIcon />} />
             <StatusCard label="Detection model" value={formatModelState(models.detection.status)} detail="YOLO integration is a later phase" tone="pending" icon={<ModelIcon />} />
           </section>
+
+          <IngestionDiagnosticsPanel />
 
           <section className="mt-6 overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0c1820]/85 shadow-[0_24px_70px_rgba(0,0,0,0.28)] backdrop-blur">
             <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/[0.07] px-5 py-4 sm:px-6">

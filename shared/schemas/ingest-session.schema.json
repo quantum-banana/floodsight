@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://floodsight.local/schemas/ingest-session.schema.json",
+  "title": "FloodSight ingestion session",
+  "description": "Bounded process-local state for browser-derived media-frame ingestion.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "session_id",
+    "source_mode",
+    "media_origin",
+    "state",
+    "created_at_ms",
+    "last_activity_at_ms",
+    "expires_at_ms",
+    "counters",
+    "limits",
+    "data_origin"
+  ],
+  "properties": {
+    "session_id": { "type": "string", "minLength": 20 },
+    "source_mode": { "type": "string", "enum": ["VIDEO_FILE", "WEBCAM"] },
+    "media_origin": {
+      "type": "string",
+      "enum": ["USER_VIDEO_FILE", "USER_WEBCAM"]
+    },
+    "state": { "type": "string", "enum": ["READY", "ACTIVE", "IDLE", "EXPIRED"] },
+    "created_at_ms": { "type": "integer", "minimum": 0 },
+    "last_activity_at_ms": { "type": "integer", "minimum": 0 },
+    "expires_at_ms": { "type": "integer", "minimum": 0 },
+    "counters": { "$ref": "#/$defs/counters" },
+    "limits": { "$ref": "#/$defs/limits" },
+    "data_origin": { "const": "DERIVED_ANALYTIC" }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "source_mode": { "const": "VIDEO_FILE" },
+        "media_origin": { "const": "USER_VIDEO_FILE" }
+      }
+    },
+    {
+      "properties": {
+        "source_mode": { "const": "WEBCAM" },
+        "media_origin": { "const": "USER_WEBCAM" }
+      }
+    }
+  ],
+  "$defs": {
+    "counters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "frames_received",
+        "frames_accepted",
+        "frames_rejected",
+        "frames_out_of_order",
+        "protocol_errors",
+        "bytes_received"
+      ],
+      "properties": {
+        "frames_received": { "type": "integer", "minimum": 0 },
+        "frames_accepted": { "type": "integer", "minimum": 0 },
+        "frames_rejected": { "type": "integer", "minimum": 0 },
+        "frames_out_of_order": { "type": "integer", "minimum": 0 },
+        "protocol_errors": { "type": "integer", "minimum": 0 },
+        "bytes_received": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "recommended_capture_fps",
+        "jpeg_quality",
+        "max_frame_bytes",
+        "accepted_mime_types"
+      ],
+      "properties": {
+        "recommended_capture_fps": { "type": "number", "minimum": 1, "maximum": 10 },
+        "jpeg_quality": { "type": "number", "minimum": 0.5, "maximum": 0.95 },
+        "max_frame_bytes": { "type": "integer", "minimum": 1 },
+        "accepted_mime_types": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        }
+      }
+    }
+  }
+}

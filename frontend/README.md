@@ -1,6 +1,6 @@
 # FloodSight command centre
 
-The React/Vite frontend is the Phase 1 command-centre product UI. The main route renders the deterministic incident; `/system` and `/diagnostics` preserve the Phase 0 readiness view.
+The React/Vite frontend preserves the deterministic Phase 1 command centre and adds Phase 2 browser-local video file and webcam sources. `/system` and `/diagnostics` include sanitized ingestion metrics alongside the established API/model view.
 
 ## Run
 
@@ -10,25 +10,16 @@ npm.cmd install
 npm.cmd run dev -- --host 127.0.0.1
 ```
 
-Open `http://127.0.0.1:5173/`. The backend must be available at the URLs configured by `VITE_API_BASE_URL` and `VITE_WS_BASE_URL`.
+## Media architecture
 
-## Controls and states
+- `useMediaSource` owns file validation, object URLs, webcam permission, media controls, track cleanup, and source switching.
+- `useFrameIngestion` owns session/WebSocket lifecycle, scheduling, one-in-flight backpressure, acknowledgements, counters, and diagnostics.
+- `frameCapture.ts` is the single video-to-canvas-to-JPEG path used by both actual source types.
+- `ingestionSocket.ts` enforces metadata-before-binary sending and validates returned acknowledgements.
 
-- Start restarts from snapshot one.
-- Pause closes the current stream while retaining the last valid backend state.
-- Resume continues from the next snapshot.
-- Reset restores the initial state and starts a new replay.
-- Retry re-fetches incident metadata after an offline or disconnected state.
-- Incident report builds copy/print content from the current snapshot.
-- Diagnostics opens the preserved Phase 0 system-status view.
+The local source renders as a plain `<video>` without simulated masks or boxes. The original file/stream is never sent wholesale. Only sampled JPEGs and required metadata leave the browser. All incident panels remain `DEMO_SIMULATED` and display a warning that they are not derived from current video.
 
-The interface explicitly presents loading, connecting, replaying, paused, reconnecting, complete, malformed, disconnected, and backend-offline states. It never uses local fallback incident values.
-
-## Architecture
-
-Feature folders separate command-centre composition, incident identity/overview, observation overlays, rescue priorities, tactical map, events, reports, and diagnostics. `useDemoIncident` owns REST bootstrap and WebSocket lifecycle; `demoStream.ts` wraps the native WebSocket; `validation.ts` rejects unsafe messages; shared types live in `types/liveResult.ts`.
-
-Observation and map visuals are local responsive SVG/CSS renderings of normalized backend geometry. There are no external map tiles, CDN assets, remote fonts, stock footage, or real-world coordinates.
+Camera constraints request `audio: false`. Source changes, stop, and unmount stop tracks as applicable; object URLs are revoked; sessions and WebSockets are cleaned up. Webcam video is muted in preview and captured frames are not mirrored.
 
 ## Checks
 
@@ -38,13 +29,14 @@ npm.cmd run test
 npm.cmd run build
 ```
 
-Tests use typed Phase 1 fixtures and a deterministic native-WebSocket mock; they do not depend on uncontrolled replay timers.
+Tests mock object URLs, media elements, `getUserMedia`, video-frame callbacks, canvas capture, REST sessions, WebSockets, acknowledgements, and cleanup. No physical camera or binary video fixture is needed for the automated suite.
 
 ## Troubleshooting
 
-- REST offline: verify the backend health URL and `VITE_API_BASE_URL`.
-- Reconnecting WebSocket: verify `VITE_WS_BASE_URL`, protocol (`ws`/`wss`), backend port, and proxy upgrade support for `/ws`.
-- CORS failure: add the exact frontend scheme/host/port to backend `FLOODSIGHT_CORS_ORIGINS`.
-- Environment changes: restart Vite; values are read at startup.
+- REST offline: verify backend `/health` and `VITE_API_BASE_URL`.
+- Frame socket offline: verify `VITE_WS_BASE_URL`, scheme, port, and proxy upgrade support for `/ws`.
+- Camera denial: use localhost/HTTPS, allow site permission, and close competing camera applications.
+- Unsupported file: try an H.264 MP4 or VP8/VP9 WebM supported by the current browser.
+- Environment changes: restart Vite because variables are read at startup.
 
-All incident content remains `DEMO_SIMULATED`. Video ingestion and ML are intentionally outside Phase 1.
+No ML model is configured. Quality measurements are `DERIVED_ANALYTIC`; incident analysis remains `DEMO_SIMULATED`.

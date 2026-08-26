@@ -9,6 +9,7 @@ from app.api.router import api_router
 from app.core.config import get_settings
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging, get_logger
+from app.services.ingestion_sessions import IngestionSessionManager
 
 
 def create_app() -> FastAPI:
@@ -29,8 +30,8 @@ def create_app() -> FastAPI:
         title="FloodSight API",
         summary="Flood-response decision-intelligence service",
         description=(
-            "Phase 0 API foundation. No machine-learning inference or rescue analytics "
-            "are configured in this phase."
+            "Phase 2 media-frame ingestion foundation. No machine-learning inference or "
+            "rescue analytics are configured in this phase."
         ),
         version=__version__,
         docs_url="/docs",
@@ -42,10 +43,11 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=settings.cors_origins,
         allow_credentials=False,
-        allow_methods=["GET"],
+        allow_methods=["GET", "POST", "DELETE"],
         allow_headers=["Accept", "Content-Type"],
     )
     register_exception_handlers(application)
+    application.state.ingestion_manager = IngestionSessionManager(settings=settings)
     application.include_router(api_router)
     return application
 

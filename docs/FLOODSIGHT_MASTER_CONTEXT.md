@@ -1305,6 +1305,24 @@ Implement:
 
 Initially results can still be mocked.
 
+#### Verified Phase 2 implementation status
+
+Phase 2 now provides a unified browser media path for local video files and
+video-only webcams. Both sources use the same bounded video-to-canvas-to-JPEG
+capture abstraction, a metadata-then-binary WebSocket protocol, and a bounded,
+expiring FastAPI session lifecycle. The backend decodes JPEG frames into
+transient OpenCV BGR arrays and reports decoded dimensions, mean luminance, and
+Laplacian blur variance with `DERIVED_ANALYTIC` provenance. Raw frames and
+original media are not persisted.
+
+The Phase 1 deterministic incident pipeline remains unchanged and continues to
+drive every incident statistic, overlay, zone, route, event, and report with
+`DEMO_SIMULATED` provenance. Actual media is displayed without simulated
+overlays and carries an explicit warning that current analytics are not derived
+from that media. Segmentation and detection models remain `not_configured`; no
+dataset, training, ML framework, checkpoint, or inference code belongs to this
+phase.
+
 ---
 
 ### Phase 3 — Dataset pipeline

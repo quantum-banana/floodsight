@@ -74,6 +74,125 @@ select {
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.18);
 }
 
+.media-source-panel {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid rgba(103, 232, 249, 0.1);
+  border-radius: 0.8rem;
+  background: rgba(8, 21, 28, 0.94);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.16);
+}
+
+.media-mode-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.media-mode-tab {
+  min-width: 7.5rem;
+  padding: 0.48rem 0.65rem;
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 0.55rem;
+  color: #94a3b8;
+  background: rgba(255, 255, 255, 0.02);
+  text-align: left;
+}
+
+.media-mode-tab span,
+.media-mode-tab small {
+  display: block;
+}
+
+.media-mode-tab span {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.media-mode-tab small {
+  margin-top: 0.15rem;
+  font-size: 0.58rem;
+  color: #526271;
+}
+
+.media-mode-tab:hover,
+.media-mode-tab:focus-visible,
+.media-mode-tab-active {
+  border-color: rgba(34, 211, 238, 0.32);
+  color: #cffafe;
+  background: rgba(8, 145, 178, 0.13);
+  outline: none;
+}
+
+.media-origin-badge {
+  border: 1px solid rgba(52, 211, 153, 0.2);
+  border-radius: 999px;
+  padding: 0.35rem 0.65rem;
+  color: #6ee7b7;
+  background: rgba(52, 211, 153, 0.07);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.actual-media-scene {
+  background:
+    radial-gradient(circle at center, rgba(8, 145, 178, 0.08), transparent 28rem),
+    #020607;
+}
+
+.ingestion-status-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.ingestion-status-grid > div {
+  min-width: 0;
+  padding: 0.65rem 0.7rem;
+  background: #09151b;
+}
+
+.ingestion-status-grid span,
+.ingestion-status-grid strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ingestion-status-grid span {
+  font-size: 0.54rem;
+  letter-spacing: 0.08em;
+  color: #526271;
+  text-transform: uppercase;
+}
+
+.ingestion-status-grid strong {
+  margin-top: 0.25rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.64rem;
+  color: #cbd5e1;
+}
+
+@media (max-width: 900px) {
+  .ingestion-status-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .command-panel {
   position: relative;
   border: 1px solid var(--line);
