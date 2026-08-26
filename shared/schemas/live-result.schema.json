@@ -1,0 +1,249 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://floodsight.local/schemas/live-result.schema.json",
+  "title": "FloodSight live result",
+  "description": "Versioned contract for one FloodSight scene result. Every operational value declares its provenance.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "incident_id",
+    "frame_id",
+    "timestamp_ms",
+    "source_mode",
+    "data_origin",
+    "system_status",
+    "statistics",
+    "detections",
+    "segmentation",
+    "roads",
+    "zones",
+    "events",
+    "route"
+  ],
+  "properties": {
+    "incident_id": { "type": "string", "minLength": 1 },
+    "frame_id": { "type": "integer", "minimum": 0 },
+    "timestamp_ms": { "type": "integer", "minimum": 0 },
+    "source_mode": { "$ref": "#/$defs/sourceMode" },
+    "data_origin": { "$ref": "#/$defs/dataOrigin" },
+    "system_status": { "$ref": "#/$defs/systemStatus" },
+    "statistics": { "$ref": "#/$defs/statistics" },
+    "detections": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/detection" }
+    },
+    "segmentation": { "$ref": "#/$defs/segmentation" },
+    "roads": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/road" }
+    },
+    "zones": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/zone" }
+    },
+    "events": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/event" }
+    },
+    "route": {
+      "oneOf": [
+        { "$ref": "#/$defs/route" },
+        { "type": "null" }
+      ]
+    }
+  },
+  "$defs": {
+    "dataOrigin": {
+      "type": "string",
+      "enum": [
+        "REAL_ML_OUTPUT",
+        "DERIVED_ANALYTIC",
+        "GIS_EXTERNAL_DATA",
+        "DEMO_SIMULATED",
+        "HUMAN_VERIFIED"
+      ]
+    },
+    "sourceMode": {
+      "type": "string",
+      "enum": ["VIDEO_FILE", "WEBCAM", "DRONE_STREAM", "DEMO_REPLAY"]
+    },
+    "modelState": {
+      "type": "string",
+      "enum": ["not_configured", "loading", "ready", "error"]
+    },
+    "systemStatus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["api", "segmentation_model", "detection_model"],
+      "properties": {
+        "api": {
+          "type": "string",
+          "enum": ["operational", "degraded", "offline"]
+        },
+        "segmentation_model": { "$ref": "#/$defs/modelState" },
+        "detection_model": { "$ref": "#/$defs/modelState" }
+      }
+    },
+    "metric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "unit", "confidence", "data_origin"],
+      "properties": {
+        "value": { "type": "number", "minimum": 0 },
+        "unit": { "type": "string", "enum": ["count", "percent"] },
+        "confidence": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "data_origin": { "$ref": "#/$defs/dataOrigin" }
+      }
+    },
+    "statistics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "flooded_area_percent",
+        "people_detected",
+        "vehicles_detected",
+        "blocked_roads",
+        "damaged_buildings"
+      ],
+      "properties": {
+        "flooded_area_percent": { "$ref": "#/$defs/metric" },
+        "people_detected": { "$ref": "#/$defs/metric" },
+        "vehicles_detected": { "$ref": "#/$defs/metric" },
+        "blocked_roads": { "$ref": "#/$defs/metric" },
+        "damaged_buildings": { "$ref": "#/$defs/metric" }
+      }
+    },
+    "point": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y"],
+      "properties": {
+        "x": { "type": "number", "minimum": 0, "maximum": 1 },
+        "y": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "boundingBox": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y", "width", "height"],
+      "properties": {
+        "x": { "type": "number", "minimum": 0, "maximum": 1 },
+        "y": { "type": "number", "minimum": 0, "maximum": 1 },
+        "width": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+        "height": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 }
+      }
+    },
+    "detection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["detection_id", "category", "label", "confidence", "bbox", "data_origin"],
+      "properties": {
+        "detection_id": { "type": "string", "minLength": 1 },
+        "category": { "type": "string", "enum": ["PERSON", "VEHICLE", "OTHER"] },
+        "label": { "type": "string", "minLength": 1 },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "bbox": { "$ref": "#/$defs/boundingBox" },
+        "data_origin": { "$ref": "#/$defs/dataOrigin" }
+      }
+    },
+    "segmentationClass": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "coverage_percent", "confidence", "data_origin"],
+      "properties": {
+        "label": { "type": "string", "minLength": 1 },
+        "coverage_percent": { "type": "number", "minimum": 0, "maximum": 100 },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "data_origin": { "$ref": "#/$defs/dataOrigin" }
+      }
+    },
+    "segmentation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "classes"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["not_configured", "processing", "ready", "error"]
+        },
+        "classes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/segmentationClass" }
+        }
+      }
+    },
+    "road": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["road_id", "state", "confidence", "data_origin"],
+      "properties": {
+        "road_id": { "type": "string", "minLength": 1 },
+        "state": { "type": "string", "enum": ["CLEAR", "FLOODED", "BLOCKED", "UNKNOWN"] },
+        "confidence": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "data_origin": { "$ref": "#/$defs/dataOrigin" }
+      }
+    },
+    "zoneReason": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "contribution", "data_origin"],
+      "properties": {
+        "label": { "type": "string", "minLength": 1 },
+        "contribution": { "type": "number", "minimum": 0, "maximum": 100 },
+        "data_origin": { "$ref": "#/$defs/dataOrigin" }
+      }
+    },
+    "zone": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["zone_id", "severity", "priority_score", "polygon", "reasons", "data_origin"],
+      "properties": {
+        "zone_id": { "type": "string", "minLength": 1 },
+        "severity": { "type": "string", "enum": ["LOW", "MODERATE", "HIGH", "CRITICAL"] },
+        "priority_score": { "type": "number", "minimum": 0, "maximum": 100 },
+        "polygon": {
+          "type": "array",
+          "minItems": 3,
+          "items": { "$ref": "#/$defs/point" }
+        },
+        "reasons": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/zoneReason" }
+        },
+        "data_origin": { "$ref": "#/$defs/dataOrigin" }
+      }
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_id", "timestamp_ms", "severity", "message", "data_origin"],
+      "properties": {
+        "event_id": { "type": "string", "minLength": 1 },
+        "timestamp_ms": { "type": "integer", "minimum": 0 },
+        "severity": { "type": "string", "enum": ["INFO", "WARNING", "CRITICAL"] },
+        "message": { "type": "string", "minLength": 1 },
+        "data_origin": { "$ref": "#/$defs/dataOrigin" }
+      }
+    },
+    "route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["route_id", "status", "waypoints", "distance_m", "data_origin"],
+      "properties": {
+        "route_id": { "type": "string", "minLength": 1 },
+        "status": { "type": "string", "enum": ["RECOMMENDED", "UNAVAILABLE"] },
+        "waypoints": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/point" }
+        },
+        "distance_m": { "type": ["number", "null"], "minimum": 0 },
+        "data_origin": { "$ref": "#/$defs/dataOrigin" }
+      }
+    }
+  }
+}
+

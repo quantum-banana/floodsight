@@ -1,0 +1,62 @@
+{
+  "incident_id": "FS-DEMO-001",
+  "frame_id": 0,
+  "timestamp_ms": 0,
+  "source_mode": "DEMO_REPLAY",
+  "data_origin": "DEMO_SIMULATED",
+  "system_status": {
+    "api": "operational",
+    "segmentation_model": "not_configured",
+    "detection_model": "not_configured"
+  },
+  "statistics": {
+    "flooded_area_percent": {
+      "value": 43.2,
+      "unit": "percent",
+      "confidence": null,
+      "data_origin": "DEMO_SIMULATED"
+    },
+    "people_detected": {
+      "value": 12,
+      "unit": "count",
+      "confidence": null,
+      "data_origin": "DEMO_SIMULATED"
+    },
+    "vehicles_detected": {
+      "value": 6,
+      "unit": "count",
+      "confidence": null,
+      "data_origin": "DEMO_SIMULATED"
+    },
+    "blocked_roads": {
+      "value": 3,
+      "unit": "count",
+      "confidence": null,
+      "data_origin": "DEMO_SIMULATED"
+    },
+    "damaged_buildings": {
+      "value": 8,
+      "unit": "count",
+      "confidence": null,
+      "data_origin": "DEMO_SIMULATED"
+    }
+  },
+  "detections": [],
+  "segmentation": {
+    "status": "not_configured",
+    "classes": []
+  },
+  "roads": [],
+  "zones": [],
+  "events": [
+    {
+      "event_id": "DEMO-EVENT-001",
+      "timestamp_ms": 0,
+      "severity": "INFO",
+      "message": "Phase 0 simulated incident contract loaded; no inference has run.",
+      "data_origin": "DEMO_SIMULATED"
+    }
+  ],
+  "route": null
+}
+

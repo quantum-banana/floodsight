@@ -1,0 +1,73 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+frontend/.env.local
+backend/.env
+*.pem
+*.key
+
+# Python
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+*.egg-info/
+build/
+dist/
+
+# Node and frontend outputs
+node_modules/
+frontend/dist/
+frontend/coverage/
+*.tsbuildinfo
+.vite/
+
+# ML models and experiment artifacts
+models/segmentation/*
+!models/segmentation/.gitkeep
+models/detection/*
+!models/detection/.gitkeep
+*.pt
+*.pth
+*.ckpt
+*.onnx
+*.engine
+runs/
+wandb/
+mlruns/
+
+# Datasets
+datasets/*
+!datasets/.gitkeep
+
+# Demo media and uploads
+demo/videos/*
+!demo/videos/.gitkeep
+uploads/
+*.mp4
+*.mov
+*.avi
+*.mkv
+
+# Logs and runtime files
+*.log
+logs/
+*.pid
+
+# IDE and operating-system files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+Desktop.ini
+
