@@ -1,9 +1,23 @@
 {
   "incident_id": "FS-DEMO-001",
+  "incident": {
+    "incident_id": "FS-DEMO-001",
+    "title": "Phase 0 Contract Preview",
+    "location_label": "Simulated development fixture",
+    "started_at_ms": 0,
+    "coordinate_space": "NORMALIZED_IMAGE",
+    "data_origin": "DEMO_SIMULATED"
+  },
   "frame_id": 0,
+  "snapshot_index": 0,
+  "snapshot_count": 1,
   "timestamp_ms": 0,
   "source_mode": "DEMO_REPLAY",
+  "coordinate_space": "NORMALIZED_IMAGE",
   "data_origin": "DEMO_SIMULATED",
+  "stream_state": "COMPLETE",
+  "incident_severity": "MODERATE",
+  "highest_priority_zone_id": null,
   "system_status": {
     "api": "operational",
     "segmentation_model": "not_configured",
@@ -44,7 +58,8 @@
   "detections": [],
   "segmentation": {
     "status": "not_configured",
-    "classes": []
+    "classes": [],
+    "regions": []
   },
   "roads": [],
   "zones": [],
@@ -53,6 +68,7 @@
       "event_id": "DEMO-EVENT-001",
       "timestamp_ms": 0,
       "severity": "INFO",
+      "category": "SYSTEM",
       "message": "Phase 0 simulated incident contract loaded; no inference has run.",
       "data_origin": "DEMO_SIMULATED"
     }

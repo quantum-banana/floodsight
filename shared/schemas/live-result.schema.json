@@ -2,15 +2,22 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://floodsight.local/schemas/live-result.schema.json",
   "title": "FloodSight live result",
-  "description": "Versioned contract for one FloodSight scene result. Every operational value declares its provenance.",
+  "description": "One provenance-labelled FloodSight observation in normalized coordinates.",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "incident_id",
+    "incident",
     "frame_id",
+    "snapshot_index",
+    "snapshot_count",
     "timestamp_ms",
     "source_mode",
+    "coordinate_space",
     "data_origin",
+    "stream_state",
+    "incident_severity",
+    "highest_priority_zone_id",
     "system_status",
     "statistics",
     "detections",
@@ -22,35 +29,25 @@
   ],
   "properties": {
     "incident_id": { "type": "string", "minLength": 1 },
+    "incident": { "$ref": "#/$defs/incidentMetadata" },
     "frame_id": { "type": "integer", "minimum": 0 },
+    "snapshot_index": { "type": "integer", "minimum": 0 },
+    "snapshot_count": { "type": "integer", "minimum": 1 },
     "timestamp_ms": { "type": "integer", "minimum": 0 },
     "source_mode": { "$ref": "#/$defs/sourceMode" },
+    "coordinate_space": { "$ref": "#/$defs/coordinateSpace" },
     "data_origin": { "$ref": "#/$defs/dataOrigin" },
+    "stream_state": { "$ref": "#/$defs/streamState" },
+    "incident_severity": { "$ref": "#/$defs/severity" },
+    "highest_priority_zone_id": { "type": ["string", "null"] },
     "system_status": { "$ref": "#/$defs/systemStatus" },
     "statistics": { "$ref": "#/$defs/statistics" },
-    "detections": {
-      "type": "array",
-      "items": { "$ref": "#/$defs/detection" }
-    },
+    "detections": { "type": "array", "items": { "$ref": "#/$defs/detection" } },
     "segmentation": { "$ref": "#/$defs/segmentation" },
-    "roads": {
-      "type": "array",
-      "items": { "$ref": "#/$defs/road" }
-    },
-    "zones": {
-      "type": "array",
-      "items": { "$ref": "#/$defs/zone" }
-    },
-    "events": {
-      "type": "array",
-      "items": { "$ref": "#/$defs/event" }
-    },
-    "route": {
-      "oneOf": [
-        { "$ref": "#/$defs/route" },
-        { "type": "null" }
-      ]
-    }
+    "roads": { "type": "array", "items": { "$ref": "#/$defs/road" } },
+    "zones": { "type": "array", "items": { "$ref": "#/$defs/zone" } },
+    "events": { "type": "array", "items": { "$ref": "#/$defs/event" } },
+    "route": { "oneOf": [{ "$ref": "#/$defs/route" }, { "type": "null" }] }
   },
   "$defs": {
     "dataOrigin": {
@@ -65,7 +62,19 @@
     },
     "sourceMode": {
       "type": "string",
-      "enum": ["VIDEO_FILE", "WEBCAM", "DRONE_STREAM", "DEMO_REPLAY"]
+      "enum": ["VIDEO_FILE", "WEBCAM", "DRONE_STREAM", "DEMO_REPLAY", "SIMULATION"]
+    },
+    "coordinateSpace": {
+      "type": "string",
+      "enum": ["NORMALIZED_IMAGE", "RELATIVE_TACTICAL"]
+    },
+    "streamState": {
+      "type": "string",
+      "enum": ["CONNECTING", "PLAYING", "PAUSED", "COMPLETE"]
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["LOW", "MODERATE", "HIGH", "CRITICAL"]
     },
     "modelState": {
       "type": "string",
@@ -76,12 +85,29 @@
       "additionalProperties": false,
       "required": ["api", "segmentation_model", "detection_model"],
       "properties": {
-        "api": {
-          "type": "string",
-          "enum": ["operational", "degraded", "offline"]
-        },
+        "api": { "type": "string", "enum": ["operational", "degraded", "offline"] },
         "segmentation_model": { "$ref": "#/$defs/modelState" },
         "detection_model": { "$ref": "#/$defs/modelState" }
+      }
+    },
+    "incidentMetadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "incident_id",
+        "title",
+        "location_label",
+        "started_at_ms",
+        "coordinate_space",
+        "data_origin"
+      ],
+      "properties": {
+        "incident_id": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "location_label": { "type": "string", "minLength": 1 },
+        "started_at_ms": { "type": "integer", "minimum": 0 },
+        "coordinate_space": { "$ref": "#/$defs/coordinateSpace" },
+        "data_origin": { "$ref": "#/$defs/dataOrigin" }
       }
     },
     "metric": {
@@ -91,11 +117,7 @@
       "properties": {
         "value": { "type": "number", "minimum": 0 },
         "unit": { "type": "string", "enum": ["count", "percent"] },
-        "confidence": {
-          "type": ["number", "null"],
-          "minimum": 0,
-          "maximum": 1
-        },
+        "confidence": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
         "data_origin": { "$ref": "#/$defs/dataOrigin" }
       }
     },
@@ -161,28 +183,61 @@
         "data_origin": { "$ref": "#/$defs/dataOrigin" }
       }
     },
+    "overlayRegion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["overlay_id", "kind", "label", "polygon", "confidence", "data_origin"],
+      "properties": {
+        "overlay_id": { "type": "string", "minLength": 1 },
+        "kind": { "type": "string", "enum": ["FLOOD", "DAMAGED_BUILDING"] },
+        "label": { "type": "string", "minLength": 1 },
+        "polygon": {
+          "type": "array",
+          "minItems": 3,
+          "items": { "$ref": "#/$defs/point" }
+        },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "data_origin": { "$ref": "#/$defs/dataOrigin" }
+      }
+    },
     "segmentation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["status", "classes"],
+      "required": ["status", "classes", "regions"],
       "properties": {
         "status": {
           "type": "string",
-          "enum": ["not_configured", "processing", "ready", "error"]
+          "enum": ["not_configured", "simulated", "processing", "ready", "error"]
         },
-        "classes": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/segmentationClass" }
-        }
+        "classes": { "type": "array", "items": { "$ref": "#/$defs/segmentationClass" } },
+        "regions": { "type": "array", "items": { "$ref": "#/$defs/overlayRegion" } }
       }
     },
     "road": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["road_id", "state", "confidence", "data_origin"],
+      "required": [
+        "road_id",
+        "label",
+        "state",
+        "access_status",
+        "geometry",
+        "confidence",
+        "data_origin"
+      ],
       "properties": {
         "road_id": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
         "state": { "type": "string", "enum": ["CLEAR", "FLOODED", "BLOCKED", "UNKNOWN"] },
+        "access_status": {
+          "type": "string",
+          "enum": ["ACCESSIBLE", "DEGRADED", "BLOCKED", "ISOLATED", "UNKNOWN"]
+        },
+        "geometry": {
+          "type": "array",
+          "minItems": 2,
+          "items": { "$ref": "#/$defs/point" }
+        },
         "confidence": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
         "data_origin": { "$ref": "#/$defs/dataOrigin" }
       }
@@ -190,9 +245,11 @@
     "zoneReason": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["label", "contribution", "data_origin"],
+      "required": ["code", "label", "description", "contribution", "data_origin"],
       "properties": {
+        "code": { "type": "string", "minLength": 1 },
         "label": { "type": "string", "minLength": 1 },
+        "description": { "type": "string", "minLength": 1 },
         "contribution": { "type": "number", "minimum": 0, "maximum": 100 },
         "data_origin": { "$ref": "#/$defs/dataOrigin" }
       }
@@ -200,31 +257,67 @@
     "zone": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["zone_id", "severity", "priority_score", "polygon", "reasons", "data_origin"],
+      "required": [
+        "zone_id",
+        "display_name",
+        "rank",
+        "severity",
+        "priority_score",
+        "confidence",
+        "polygon",
+        "people_count",
+        "vehicle_count",
+        "flood_coverage_percent",
+        "building_damage_count",
+        "road_condition",
+        "access_status",
+        "primary_reason",
+        "reasons",
+        "updated_at_ms",
+        "data_origin"
+      ],
       "properties": {
         "zone_id": { "type": "string", "minLength": 1 },
-        "severity": { "type": "string", "enum": ["LOW", "MODERATE", "HIGH", "CRITICAL"] },
+        "display_name": { "type": "string", "minLength": 1 },
+        "rank": { "type": "integer", "minimum": 1 },
+        "severity": { "$ref": "#/$defs/severity" },
         "priority_score": { "type": "number", "minimum": 0, "maximum": 100 },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
         "polygon": {
           "type": "array",
           "minItems": 3,
           "items": { "$ref": "#/$defs/point" }
         },
-        "reasons": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/zoneReason" }
+        "people_count": { "type": "integer", "minimum": 0 },
+        "vehicle_count": { "type": "integer", "minimum": 0 },
+        "flood_coverage_percent": { "type": "number", "minimum": 0, "maximum": 100 },
+        "building_damage_count": { "type": "integer", "minimum": 0 },
+        "road_condition": {
+          "type": "string",
+          "enum": ["CLEAR", "FLOODED", "BLOCKED", "UNKNOWN"]
         },
+        "access_status": {
+          "type": "string",
+          "enum": ["ACCESSIBLE", "DEGRADED", "BLOCKED", "ISOLATED", "UNKNOWN"]
+        },
+        "primary_reason": { "type": "string", "minLength": 1 },
+        "reasons": { "type": "array", "items": { "$ref": "#/$defs/zoneReason" } },
+        "updated_at_ms": { "type": "integer", "minimum": 0 },
         "data_origin": { "$ref": "#/$defs/dataOrigin" }
       }
     },
     "event": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["event_id", "timestamp_ms", "severity", "message", "data_origin"],
+      "required": ["event_id", "timestamp_ms", "severity", "category", "message", "data_origin"],
       "properties": {
         "event_id": { "type": "string", "minLength": 1 },
         "timestamp_ms": { "type": "integer", "minimum": 0 },
         "severity": { "type": "string", "enum": ["INFO", "WARNING", "CRITICAL"] },
+        "category": {
+          "type": "string",
+          "enum": ["FLOOD", "DETECTION", "ACCESS", "PRIORITY", "ROUTE", "SYSTEM"]
+        },
         "message": { "type": "string", "minLength": 1 },
         "data_origin": { "$ref": "#/$defs/dataOrigin" }
       }
@@ -232,15 +325,24 @@
     "route": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["route_id", "status", "waypoints", "distance_m", "data_origin"],
+      "required": [
+        "route_id",
+        "status",
+        "target_zone_id",
+        "label",
+        "waypoints",
+        "distance_m",
+        "access_summary",
+        "data_origin"
+      ],
       "properties": {
         "route_id": { "type": "string", "minLength": 1 },
         "status": { "type": "string", "enum": ["RECOMMENDED", "UNAVAILABLE"] },
-        "waypoints": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/point" }
-        },
+        "target_zone_id": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
+        "waypoints": { "type": "array", "items": { "$ref": "#/$defs/point" } },
         "distance_m": { "type": ["number", "null"], "minimum": 0 },
+        "access_summary": { "type": "string", "minLength": 1 },
         "data_origin": { "$ref": "#/$defs/dataOrigin" }
       }
     }

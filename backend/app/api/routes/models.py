@@ -13,4 +13,3 @@ router = APIRouter(prefix="/models", tags=["models"])
 )
 async def model_status() -> ModelStatusResponse:
     return get_model_status()
-

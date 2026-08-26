@@ -1,2 +1,1 @@
 """Typed API contracts."""
-

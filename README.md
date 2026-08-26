@@ -2,69 +2,63 @@
 
 **From Drone Pixels to Rescue Decisions**
 
-FloodSight is a flood-response decision-intelligence platform designed to turn live or recorded drone observations into an explainable, priority-aware rescue and resource-allocation picture for emergency command centres.
+FloodSight is a flood-response decision-intelligence platform for emergency command-centre personnel. Phase 1 provides a complete, judge-facing command-centre experience driven by one deterministic simulated incident. It demonstrates the product flow from disaster evidence to rescue priorities, explanations, relative access intelligence, events, and an incident report.
 
-Phase 0 provides the runnable monorepo foundation and an honest development-status interface. It does **not** yet perform machine-learning inference, video analysis, rescue-zone generation, prioritisation, or routing.
+All operational values in this phase are visibly and structurally labelled `DEMO_SIMULATED`. No video processing, real model inference, GIS, or autonomous dispatch is implemented.
 
-## Architecture overview
+## Phase 1 architecture
 
 ```text
-React + TypeScript + Tailwind
-        │
-        │ REST (Phase 0)
-        ▼
-FastAPI application
-        │
-        ├── health and model readiness
-        └── explicitly simulated shared incident example
-
-Future phases:
-drone/video → SegFormer + YOLO → temporal scene fusion
-            → rescue zones → explainable priorities → routing/dashboard
+FastAPI deterministic scenario service
+  ├─ REST: incident metadata, latest state, and report
+  ├─ WebSocket: six ordered, schema-valid snapshots
+  └─ Pydantic live-result contract
+                  │
+                  ├─ shared JSON Schema + example
+                  │
+                  ▼
+React + strict TypeScript command centre
+  ├─ scalable SVG observation overlays
+  ├─ ranked rescue zones and explanation drawer
+  ├─ relative tactical map and route
+  ├─ bounded incident event timeline
+  ├─ current-state report
+  └─ Phase 0 diagnostics at /system
 ```
 
-The live-result contract is defined in three synchronized forms:
+The live-result contract is synchronized across:
 
 - `shared/schemas/live-result.schema.json` — language-neutral JSON Schema;
-- `backend/app/schemas/live_result.py` — Pydantic API models;
-- `frontend/src/types/liveResult.ts` — TypeScript interfaces.
+- `shared/examples/live-result.sample.json` — minimal compatible example;
+- `backend/app/schemas/live_result.py` — strict Pydantic models;
+- `frontend/src/types/liveResult.ts` — strict TypeScript interfaces.
 
-## Repository layout
+Normalized coordinates remain in the repository's established `0–1` range. The UI maps them into responsive SVG view boxes and never presents them as geographic coordinates or real-world distance.
 
-```text
-floodsight/
-├── frontend/                 React/Vite status application
-├── backend/                  FastAPI service and tests
-├── shared/
-│   ├── schemas/              Cross-runtime JSON contracts
-│   └── examples/             Contract examples
-├── ml/
-│   ├── segmentation/         Reserved for later SegFormer work
-│   └── detection/            Reserved for later YOLO work
-├── models/
-│   ├── segmentation/         Local checkpoints (ignored)
-│   └── detection/            Local checkpoints (ignored)
-├── datasets/                 Local datasets (ignored)
-├── demo/
-│   ├── videos/               Local demo media (ignored)
-│   └── replay/               Replay fixtures in later phases
-├── docs/                     Product context and documentation
-├── scripts/                  Setup, development, and check helpers
-└── tests/                    Cross-project test area
-```
+## Deterministic incident
+
+Phase 1 contains one reproducible six-snapshot scenario:
+
+- ID: `FS-001`
+- title: `Riverside Ward Flood Response`
+- source mode: `SIMULATION`
+- coordinate space: `RELATIVE_TACTICAL`
+- provenance: `DEMO_SIMULATED`
+
+The stable final snapshot has CRITICAL incident severity, 42% simulated flood coverage, 6 people, 4 vehicles, 2 blocked roads, and 5 damaged buildings. Its supplied rescue ranking is Zone 2 at 92, Zone 4 at 76, and Zone 1 at 54. These values and score contributions are fixture data, not outputs from a real priority engine.
 
 ## Prerequisites
 
 - Python 3.11 or newer;
 - Node.js 20.19+, 22.12+, or newer and npm;
-- Git for normal source-control workflows;
+- Git;
 - PowerShell 5.1+ on Windows, or a POSIX-compatible shell on Linux/macOS.
 
-Docker and GPU tooling are not required for Phase 0.
+Docker, GPU tooling, model weights, map tiles, and runtime internet access are not required.
 
-## Windows PowerShell setup
+## Setup
 
-From the repository root:
+Windows PowerShell, from the repository root:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
@@ -73,11 +67,7 @@ Copy-Item frontend\.env.example frontend\.env.local
 .\scripts\setup.ps1
 ```
 
-The setup script creates `.venv`, installs the backend with development dependencies, and runs `npm install` in `frontend`.
-
-## Linux/macOS setup
-
-From the repository root:
+Linux/macOS:
 
 ```bash
 cp .env.example .env
@@ -86,27 +76,31 @@ chmod +x scripts/*.sh
 ./scripts/setup.sh
 ```
 
-## Start development servers
+## Start Phase 1
 
 Run both services:
 
 ```powershell
-# Windows PowerShell
 .\scripts\dev.ps1
 ```
 
+or:
+
 ```bash
-# Linux/macOS
 ./scripts/dev.sh
 ```
 
 Development URLs:
 
-- frontend: `http://127.0.0.1:5173`;
-- backend health: `http://127.0.0.1:8000/health`;
-- interactive API documentation: `http://127.0.0.1:8000/docs`.
+- command centre: `http://127.0.0.1:5173/`
+- system diagnostics: `http://127.0.0.1:5173/system`
+- backend health: `http://127.0.0.1:8000/health`
+- API documentation: `http://127.0.0.1:8000/docs`
+- demo WebSocket: `ws://127.0.0.1:8000/ws/demo/incidents/FS-001/live`
 
-To run the services separately on Windows:
+The command centre loads the first snapshot through REST and connects to the deterministic WebSocket stream. Use Start, Pause, Resume, and Reset in the replay bar. The report and diagnostics actions are in the application header. The interface never substitutes local incident values if the backend is unavailable.
+
+To start each service separately on Windows:
 
 ```powershell
 Push-Location backend
@@ -118,19 +112,33 @@ npm.cmd run dev -- --host 127.0.0.1
 Pop-Location
 ```
 
-## Run all checks
+## Demo API
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/health` | Service readiness |
+| GET | `/api/models/status` | Honest `not_configured` model state |
+| GET | `/api/demo/live-result` | Preserved Phase 0 contract preview |
+| GET | `/api/demo/incidents` | Deterministic incident list |
+| GET | `/api/demo/incidents/FS-001` | Incident metadata plus initial/latest snapshots |
+| GET | `/api/demo/incidents/FS-001/report` | Report-ready final state |
+| WS | `/ws/demo/incidents/FS-001/live` | Ordered snapshot replay |
+
+The WebSocket accepts optional `start_index`, `interval_ms`, and `loop` query parameters. The default interval comes from `FLOODSIGHT_DEMO_STREAM_INTERVAL_MS`.
+
+## Verification
+
+Run the complete suite:
 
 ```powershell
-# Windows PowerShell
 .\scripts\check.ps1
 ```
 
 ```bash
-# Linux/macOS
 ./scripts/check.sh
 ```
 
-Equivalent individual commands are:
+Equivalent Windows commands:
 
 ```powershell
 .\.venv\Scripts\python.exe -m ruff check backend\app backend\tests
@@ -140,37 +148,49 @@ npm.cmd --prefix frontend run test
 npm.cmd --prefix frontend run build
 ```
 
-The backend test suite includes JSON Schema validation for the shared sample.
+Backend tests validate every deterministic snapshot against JSON Schema, provenance, stable zone/event IDs, REST errors, and WebSocket order. Frontend tests cover dashboard states, ranking changes, zone details, layers, reports, diagnostics, and a deterministic WebSocket mock.
 
 ## Environment configuration
 
-Backend settings use the `FLOODSIGHT_` prefix. See `.env.example` for host, port, log level, environment name, and allowed CORS origins. The application reads the root `.env` and `backend/.env` when present.
+Backend variables use the `FLOODSIGHT_` prefix. The root `.env.example` documents host, port, logging, CORS origins, and demo interval. The application reads the root `.env` and `backend/.env` when present.
 
-The frontend reads `VITE_API_BASE_URL`. Use `frontend/.env.local` for machine-specific settings; never commit it. Vite's development proxy can also use `VITE_DEV_PROXY_TARGET`.
+Frontend variables are documented in `frontend/.env.example`:
 
-## Current implementation status
+- `VITE_API_BASE_URL` — REST API base URL;
+- `VITE_WS_BASE_URL` — WebSocket base URL;
+- `VITE_DEV_PROXY_TARGET` — Vite REST/WebSocket proxy target.
 
-Phase 0 includes:
+Use `frontend/.env.local` for machine-specific values and never commit it.
 
-- a typed FastAPI application with health, honest model-status, and simulated-demo endpoints;
-- a shared live-result schema and example;
-- a responsive development-status frontend with loading, offline, and retry states;
-- frontend/backend tests, linting, and production build configuration;
-- cross-platform setup, development, and verification scripts.
+## Truth and provenance labels
 
-Not yet implemented:
+- `DEMO_SIMULATED` — synthetic Phase 1 scenario data;
+- `REAL_ML_OUTPUT` — reserved for a direct configured model output;
+- `DERIVED_ANALYTIC` — reserved for a declared deterministic calculation;
+- `GIS_EXTERNAL_DATA` — reserved for external geographic data;
+- `HUMAN_VERIFIED` — reserved for an authorized human confirmation.
 
-- dataset ingestion or label harmonisation;
-- SegFormer or YOLO loading, training, or inference;
-- video or webcam ingestion;
-- temporal fusion, rescue zones, priority calculations, routing, GIS, reports, or the complete command-centre dashboard.
+Phase 1 only emits `DEMO_SIMULATED`. Segmentation is explicitly `simulated`; SegFormer and YOLO remain `not_configured`.
+
+## Implemented and out of scope
+
+Phase 1 implements the responsive command-centre UI, deterministic REST/WebSocket replay, simulated SVG overlays, supplied ranked zones and explanations, relative route view, bounded events, report/copy/print actions, explicit connection states, and preserved system diagnostics.
+
+Still unimplemented:
+
+- video upload, decoding, webcam, or actual drone streaming;
+- OpenCV ingestion or temporal scene fusion;
+- datasets, training, SegFormer, YOLO, PyTorch, or real inference;
+- real rescue-zone generation or priority calculation;
+- real GIS, map distances, travel times, or route optimization;
+- autonomous dispatch or an LLM assistant.
 
 ## Roadmap
 
 | Phase | Scope | Status |
 | --- | --- | --- |
-| 0 | Repository foundation and frontend/backend connectivity | Implemented |
-| 1 | Polished command-centre UI using visibly simulated data | Planned |
+| 0 | Repository foundation and frontend/backend connectivity | Complete |
+| 1 | Complete command-centre UI with deterministic simulated data | Complete |
 | 2 | Unified video-file and webcam ingestion | Planned |
 | 3 | Dataset validation, inspection, and taxonomy mapping | Planned |
 | 4 | SegFormer segmentation training and evaluation | Planned |
@@ -181,55 +201,30 @@ Not yet implemented:
 | 9 | Tactical intelligence, routing, events, and reports | Planned |
 | 10 | Demo hardening, tuning, fallback, and reliability | Planned |
 
-## Truth labels
-
-Every operational value must communicate its origin:
-
-- `REAL_ML_OUTPUT` — a direct output from a configured and executed ML model;
-- `DERIVED_ANALYTIC` — deterministically calculated from declared inputs;
-- `GIS_EXTERNAL_DATA` — supplied by a geographic or other external data source;
-- `DEMO_SIMULATED` — synthetic data used only for development or a clearly labelled demonstration;
-- `HUMAN_VERIFIED` — reviewed and explicitly confirmed by an authorized human.
-
-Phase 0's incident preview is `DEMO_SIMULATED`. Model statuses are `not_configured`; no endpoint represents the sample as inference.
-
 ## Troubleshooting
 
 ### PowerShell blocks npm or project scripts
 
-Use `Set-ExecutionPolicy -Scope Process Bypass` for the current PowerShell process. The repository's PowerShell scripts invoke `npm.cmd`, which also avoids the common blocked `npm.ps1` shim.
+Use `Set-ExecutionPolicy -Scope Process Bypass` for the current shell. Repository scripts invoke `npm.cmd`, avoiding the commonly blocked `npm.ps1` shim.
 
-### `python` is not found on Windows
+### The command centre says the backend is offline
 
-Install Python 3.11+ and enable its PATH option, or use the Python launcher to create the environment manually:
+Open `http://127.0.0.1:8000/health`, verify `VITE_API_BASE_URL`, and confirm the frontend origin is present in `FLOODSIGHT_CORS_ORIGINS`. Restart both services after environment changes.
 
-```powershell
-py -3.11 -m venv .venv
-```
+### The stream remains reconnecting or disconnected
 
-Then rerun `scripts/setup.ps1`.
+Confirm `VITE_WS_BASE_URL` uses `ws://` for HTTP development and `wss://` for HTTPS. If the frontend host or backend port changed, update both the WebSocket URL and Vite proxy target. A reverse proxy must support WebSocket upgrade requests on `/ws`.
 
-### The frontend reports that the backend is offline
+### Browser reports CORS or origin failures
 
-Confirm `http://127.0.0.1:8000/health` opens, verify `VITE_API_BASE_URL` in `frontend/.env.local`, and ensure the frontend origin appears in `FLOODSIGHT_CORS_ORIGINS`. Restart both development servers after changing environment files.
+Keep the exact scheme, host, and port in `FLOODSIGHT_CORS_ORIGINS`; `localhost` and `127.0.0.1` are different origins. REST CORS configuration does not repair a blocked or misrouted WebSocket upgrade, so inspect the WebSocket request separately.
 
-### Port 5173 or 8000 is already in use
+### Shared-schema validation fails
 
-Stop the conflicting process or start the service manually on another port. If the backend port changes, update `VITE_API_BASE_URL` to match.
-
-### Dependency installation fails
-
-Check network access, then upgrade packaging tools and retry:
+Run:
 
 ```powershell
-.\.venv\Scripts\python.exe -m pip install --upgrade pip
-npm.cmd cache verify
-.\scripts\setup.ps1
+.\.venv\Scripts\python.exe -m pytest backend\tests\test_shared_schema.py -vv
 ```
 
-Do not add ML packages as a workaround; Phase 0 intentionally has a lightweight dependency set.
-
-### Shared sample validation fails
-
-Run `.\.venv\Scripts\python.exe -m pytest backend\tests\test_shared_schema.py -vv`. Keep JSON Schema, Pydantic, TypeScript, and the sample field names aligned when changing the contract.
-
+Keep the JSON Schema, Pydantic models, TypeScript interfaces, examples, and scenario snapshots aligned.

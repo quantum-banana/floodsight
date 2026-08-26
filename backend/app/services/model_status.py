@@ -7,4 +7,3 @@ def get_model_status() -> ModelStatusResponse:
         segmentation=unconfigured,
         detection=unconfigured.model_copy(deep=True),
     )
-

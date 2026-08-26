@@ -39,6 +39,5 @@ try {
     Pop-Location
 }
 
-Write-Host "FloodSight Phase 0 setup completed successfully." -ForegroundColor Green
+Write-Host "FloodSight Phase 1 setup completed successfully." -ForegroundColor Green
 Write-Host "Run .\scripts\dev.ps1 to start the development services."
-

@@ -7,4 +7,3 @@ class HealthResponse(ContractModel):
     status: Literal["ok"]
     service: Literal["floodsight-api"]
     version: str
-

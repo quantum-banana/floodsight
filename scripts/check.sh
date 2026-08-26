@@ -25,5 +25,4 @@ echo "Running frontend tests ..."
 echo "Building frontend production bundle ..."
 (cd "$PROJECT_ROOT/frontend" && npm run build)
 
-echo "All FloodSight Phase 0 checks passed."
-
+echo "All FloodSight Phase 1 checks passed."

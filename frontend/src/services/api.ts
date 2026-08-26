@@ -1,6 +1,9 @@
 import { API_BASE_URL, API_TIMEOUT_MS } from "../config/environment";
 import type {
   HealthResponse,
+  IncidentDetailResponse,
+  IncidentListResponse,
+  IncidentReport,
   ModelStatusResponse,
   SystemSnapshot,
 } from "../types/api";
@@ -52,5 +55,19 @@ export async function getSystemSnapshot(): Promise<SystemSnapshot> {
   ]);
 
   return { health, models, sample };
+}
+
+export function getDemoIncidents(): Promise<IncidentListResponse> {
+  return request<IncidentListResponse>("/api/demo/incidents");
+}
+
+export function getDemoIncident(incidentId = "FS-001"): Promise<IncidentDetailResponse> {
+  return request<IncidentDetailResponse>(`/api/demo/incidents/${encodeURIComponent(incidentId)}`);
+}
+
+export function getDemoIncidentReport(incidentId = "FS-001"): Promise<IncidentReport> {
+  return request<IncidentReport>(
+    `/api/demo/incidents/${encodeURIComponent(incidentId)}/report`,
+  );
 }
 

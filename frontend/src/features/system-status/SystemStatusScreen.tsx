@@ -71,7 +71,8 @@ export function SystemStatusScreen({ snapshot }: SystemStatusScreenProps) {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <span className="hidden text-[0.68rem] font-semibold tracking-[0.18em] text-slate-600 uppercase sm:inline">Foundation · Phase 0</span>
+            <a href="/" className="command-button command-button-secondary">Command center</a>
+            <span className="hidden text-[0.68rem] font-semibold tracking-[0.18em] text-slate-600 uppercase sm:inline">Diagnostics · Phase 1</span>
             <span className="rounded-full border border-emerald-400/20 bg-emerald-400/[0.08] px-3 py-1.5 text-[0.68rem] font-bold tracking-[0.16em] text-emerald-300 uppercase">System online</span>
           </div>
         </header>
@@ -113,7 +114,7 @@ export function SystemStatusScreen({ snapshot }: SystemStatusScreenProps) {
 
             <div className="flex items-start gap-3 border-t border-white/[0.07] bg-amber-300/[0.025] px-5 py-4 text-sm text-slate-500 sm:px-6">
               <svg aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 9v4m0 4h.01M10.3 4.3 2.8 17a2 2 0 0 0 1.7 3h15a2 2 0 0 0 1.7-3L13.7 4.3a2 2 0 0 0-3.4 0Z" /></svg>
-              <p>Preview values exercise the Phase 0 data contract only. They are simulated and are not model detections, derived rescue analytics, or human-verified observations.</p>
+              <p>Preview values exercise the shared data contract. They are simulated and are not model detections or human-verified observations.</p>
             </div>
           </section>
         </main>
@@ -126,4 +127,3 @@ export function SystemStatusScreen({ snapshot }: SystemStatusScreenProps) {
     </div>
   );
 }
-

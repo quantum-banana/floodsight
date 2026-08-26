@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 :root {
+  color-scheme: dark;
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
@@ -8,6 +9,19 @@
   background: #071016;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
+  --surface: rgba(10, 23, 30, 0.94);
+  --surface-raised: rgba(13, 29, 38, 0.96);
+  --line: rgba(255, 255, 255, 0.075);
+  --background: #060e13;
+  --text: #e2e8f0;
+  --muted-text: #64748b;
+  --flood: #38bdf8;
+  --critical: #fb7185;
+  --high: #fb923c;
+  --moderate: #facc15;
+  --safe: #34d399;
+  --cyan: #67e8f9;
+  --cyan-strong: #22d3ee;
 }
 
 * {
@@ -23,6 +37,14 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  background:
+    radial-gradient(circle at 16% -10%, rgba(8, 145, 178, 0.12), transparent 35rem),
+    #060e13;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
 }
 
 button,
@@ -40,8 +62,363 @@ select {
   mask-image: linear-gradient(to bottom, black, transparent 82%);
 }
 
+.command-grid-bg {
+  background-image:
+    linear-gradient(rgba(103, 232, 249, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(103, 232, 249, 0.018) 1px, transparent 1px);
+  background-size: 36px 36px;
+  mask-image: linear-gradient(to bottom, black 8%, transparent 92%);
+}
+
+.command-header {
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.18);
+}
+
+.command-panel {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: 0.875rem;
+  background: var(--surface);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.2);
+}
+
+.panel-heading {
+  display: flex;
+  min-height: 4rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent);
+}
+
+.panel-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #e2e8f0;
+  text-transform: uppercase;
+}
+
+.panel-subtitle {
+  margin-top: 0.25rem;
+  font-size: 0.66rem;
+  line-height: 1rem;
+  letter-spacing: 0.03em;
+  color: #526271;
+}
+
+.eyebrow,
+.section-label {
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: #67e8f9;
+  text-transform: uppercase;
+}
+
+.command-button,
+.command-icon-button,
+.command-control {
+  display: inline-flex;
+  min-height: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border: 1px solid transparent;
+  border-radius: 0.55rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.035em;
+  transition:
+    color 150ms ease,
+    border-color 150ms ease,
+    background-color 150ms ease,
+    transform 150ms ease;
+}
+
+.command-button {
+  padding: 0.5rem 0.8rem;
+}
+
+.command-icon-button {
+  width: 2.25rem;
+  padding: 0;
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #8b9aab;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.command-control {
+  padding: 0.45rem 0.68rem;
+  border-color: rgba(255, 255, 255, 0.075);
+  color: #94a3b8;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.command-button-primary {
+  border-color: rgba(34, 211, 238, 0.22);
+  color: #cffafe;
+  background: rgba(8, 145, 178, 0.16);
+}
+
+.command-button-secondary {
+  border-color: rgba(255, 255, 255, 0.085);
+  color: #b6c2cf;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.command-button:hover,
+.command-icon-button:hover,
+.command-control:hover {
+  border-color: rgba(103, 232, 249, 0.3);
+  color: #ecfeff;
+  background: rgba(8, 145, 178, 0.12);
+}
+
+.command-button:active,
+.command-icon-button:active,
+.command-control:active {
+  transform: translateY(1px);
+}
+
+.command-button:focus-visible,
+.command-icon-button:focus-visible,
+.command-control:focus-visible {
+  outline: 2px solid var(--cyan-strong);
+  outline-offset: 2px;
+}
+
+.command-button:disabled,
+.command-control:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.command-state {
+  display: grid;
+  min-height: 100vh;
+  place-content: center;
+  justify-items: center;
+  background:
+    radial-gradient(circle at center, rgba(8, 145, 178, 0.12), transparent 28rem),
+    #060e13;
+  text-align: center;
+}
+
+.radar-loader {
+  position: relative;
+  width: 4.5rem;
+  height: 4.5rem;
+  overflow: hidden;
+  border: 1px solid rgba(103, 232, 249, 0.26);
+  border-radius: 50%;
+  background:
+    linear-gradient(90deg, transparent 49.5%, rgba(103, 232, 249, 0.14) 50%, transparent 50.5%),
+    linear-gradient(transparent 49.5%, rgba(103, 232, 249, 0.14) 50%, transparent 50.5%),
+    rgba(8, 145, 178, 0.05);
+  box-shadow: 0 0 50px rgba(34, 211, 238, 0.08);
+}
+
+.radar-loader::before {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: conic-gradient(from 0deg, transparent 65%, rgba(103, 232, 249, 0.55));
+  content: "";
+  animation: radar-sweep 1.8s linear infinite;
+}
+
+.radar-loader span {
+  position: absolute;
+  inset: 1.35rem;
+  border: 1px solid rgba(103, 232, 249, 0.22);
+  border-radius: inherit;
+}
+
+.status-pulse {
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 50%;
+  background: #22d3ee;
+  box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.45);
+  animation: status-ping 2.4s ease-out infinite;
+}
+
+.sensor-scene {
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 65% 36%, rgba(34, 211, 238, 0.06), transparent 22rem),
+    #08141a;
+}
+
+.sensor-scene::after {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  pointer-events: none;
+  background-image: linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px);
+  background-size: 100% 4px;
+  content: "";
+  opacity: 0.3;
+}
+
+.sensor-scan-line {
+  position: absolute;
+  z-index: 3;
+  top: -1px;
+  right: 0;
+  left: 0;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(103, 232, 249, 0.65), transparent);
+  box-shadow: 0 0 12px rgba(34, 211, 238, 0.5);
+  animation: sensor-scan 7s linear infinite;
+}
+
+.tactical-grid {
+  background-image:
+    linear-gradient(rgba(103, 232, 249, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(103, 232, 249, 0.035) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+.route-path {
+  animation: route-march 1.8s linear infinite;
+}
+
+.priority-list {
+  scrollbar-gutter: stable;
+}
+
+.priority-card {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0.7rem;
+  padding: 0.85rem;
+  background: rgba(255, 255, 255, 0.02);
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    transform 160ms ease;
+}
+
+.priority-card:hover {
+  background: rgba(255, 255, 255, 0.035);
+  transform: translateY(-1px);
+}
+
+.priority-card-selected {
+  border-top-color: rgba(103, 232, 249, 0.22);
+  border-right-color: rgba(103, 232, 249, 0.22);
+  border-bottom-color: rgba(103, 232, 249, 0.22);
+  background: rgba(8, 145, 178, 0.08);
+  box-shadow: inset 0 0 22px rgba(34, 211, 238, 0.035);
+}
+
+.drawer-enter {
+  animation: drawer-in 180ms ease-out both;
+}
+
+.modal-enter {
+  animation: modal-in 180ms ease-out both;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(103, 232, 249, 0.18) transparent;
+}
+
+@keyframes radar-sweep {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes status-ping {
+  60%, 100% { box-shadow: 0 0 0 7px rgba(34, 211, 238, 0); }
+}
+
+@keyframes sensor-scan {
+  from { transform: translateY(0); }
+  to { transform: translateY(30rem); }
+}
+
+@keyframes route-march {
+  to { stroke-dashoffset: -7; }
+}
+
+@keyframes drawer-in {
+  from { opacity: 0; transform: translateX(1.5rem); }
+}
+
+@keyframes modal-in {
+  from { opacity: 0; transform: translateY(0.75rem) scale(0.985); }
+}
+
+@media (max-width: 420px) {
+  .panel-heading {
+    min-height: 3.75rem;
+    padding: 0.75rem;
+  }
+
+  .command-button {
+    padding-right: 0.65rem;
+    padding-left: 0.65rem;
+  }
+}
+
+@media (min-width: 1280px) {
+  .sensor-scene {
+    height: 24rem;
+    min-height: 24rem;
+    aspect-ratio: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media print {
+  body {
+    color: #111827;
+    background: white;
+  }
+
+  body > #root > div > header,
+  body > #root > div > main,
+  body > #root > div > footer {
+    display: none !important;
+  }
+
+  [role="presentation"] {
+    position: static !important;
+    display: block !important;
+    padding: 0 !important;
+    background: white !important;
+  }
+
+  [role="dialog"] {
+    max-width: none !important;
+    color: #111827 !important;
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+
+  [role="dialog"] footer,
+  [role="dialog"] .command-icon-button {
+    display: none !important;
+  }
+}
+
 ::selection {
   color: #ecfeff;
   background: rgba(8, 145, 178, 0.45);
 }
-

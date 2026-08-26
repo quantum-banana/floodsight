@@ -14,6 +14,10 @@ export default defineConfig(({ mode }) => {
       proxy: {
         "/health": proxyTarget,
         "/api": proxyTarget,
+        "/ws": {
+          target: proxyTarget,
+          ws: true,
+        },
       },
     },
     test: {
@@ -23,4 +27,3 @@ export default defineConfig(({ mode }) => {
     },
   };
 });
-

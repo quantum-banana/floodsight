@@ -18,4 +18,3 @@ def _load_demo_live_result() -> LiveResult:
 
 def get_demo_live_result() -> LiveResult:
     return _load_demo_live_result().model_copy(deep=True)
-
