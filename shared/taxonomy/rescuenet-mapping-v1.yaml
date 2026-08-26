@@ -1,0 +1,18 @@
+dataset_id: rescuenet
+task_type: SEMANTIC_SEGMENTATION
+mapping_version: rescuenet-mapping-v1
+taxonomy_version: segmentation-taxonomy-v1
+real_data_review_required: true
+source_id_basis: "Official repository classes with published palette order; real mask IDs and RGB aliases must be inventoried before freeze."
+mappings:
+  - {source_id: 0, source_name: background, target_id: 0, target_name: background_other, action: MAP, explanation: "Background and unmodelled content.", source_support: official-class-list, review_status: REVIEW_REQUIRED, colors: [[0, 0, 0]]}
+  - {source_id: 1, source_name: water, target_id: 1, target_name: water, action: MAP, explanation: "Direct water support; it does not by itself label a road flooded.", source_support: official-class-list, review_status: REVIEW_REQUIRED, colors: [[61, 230, 250], [0, 0, 255]]}
+  - {source_id: 2, source_name: building_no_damage, target_id: 5, target_name: building_normal, action: MAP, explanation: "Direct no-damage building support.", source_support: official-class-list, review_status: REVIEW_REQUIRED, colors: [[180, 120, 120]]}
+  - {source_id: 3, source_name: building_minor_damage, target_id: 7, target_name: building_minor_damage, action: MAP, explanation: "Direct minor-damage support.", source_support: official-class-list, review_status: REVIEW_REQUIRED, colors: [[235, 255, 7]]}
+  - {source_id: 4, source_name: building_major_damage, target_id: 8, target_name: building_major_damage, action: MAP, explanation: "Direct major-damage support.", source_support: official-class-list, review_status: REVIEW_REQUIRED, colors: [[255, 184, 6]]}
+  - {source_id: 5, source_name: building_total_destruction, target_id: 9, target_name: building_destroyed, action: MAP, explanation: "Total destruction maps to destroyed.", source_support: official-class-list, review_status: REVIEW_REQUIRED, colors: [[255, 0, 0]]}
+  - {source_id: 6, source_name: vehicle, target_id: 10, target_name: vehicle, action: MAP, explanation: "Direct semantic vehicle support.", source_support: official-class-list, review_status: REVIEW_REQUIRED, colors: [[255, 0, 245], [255, 0, 255]]}
+  - {source_id: 7, source_name: road_clear, target_id: 2, target_name: road_clear, action: MAP, explanation: "Clear road remains distinct from flooded and blocked roads.", source_support: official-class-list, review_status: REVIEW_REQUIRED, colors: [[140, 140, 140]]}
+  - {source_id: 8, source_name: road_blocked, target_id: 4, target_name: road_blocked, action: MAP, explanation: "Physical/damage blockage is not treated as road flooding.", source_support: official-class-list, review_status: REVIEW_REQUIRED, colors: [[160, 150, 20]]}
+  - {source_id: 9, source_name: tree, target_id: 11, target_name: vegetation, action: MERGE, explanation: "Tree is merged into vegetation.", source_support: official-class-list, review_status: REVIEW_REQUIRED, colors: [[0, 255, 0]]}
+  - {source_id: 10, source_name: pool, target_id: 1, target_name: water, action: MERGE, explanation: "Pool is merged into water and does not imply flood exposure.", source_support: official-class-list, review_status: REVIEW_REQUIRED, colors: [[0, 255, 255]]}

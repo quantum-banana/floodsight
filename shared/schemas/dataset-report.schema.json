@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://floodsight.local/schemas/dataset-report.schema.json",
+  "title": "FloodSight dataset health report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "dataset_id", "source_version", "acquisition_status",
+    "license_review_status", "review_status", "split_counts", "image_count", "annotation_count",
+    "missing_pairs", "corrupt_files", "dimensions", "class_distribution",
+    "ignored_labels", "unknown_labels", "duplicate_count", "cross_split_leakage_count",
+    "conversion_count", "failed_conversion_count", "output_paths", "fingerprint",
+    "warnings", "blocking_errors", "recommended_next_action", "ready_for_next_phase"
+  ],
+  "properties": {
+    "schema_version": { "const": "dataset-report-v1" },
+    "dataset_id": { "type": "string", "minLength": 1 },
+    "source_version": { "type": "string", "minLength": 1 },
+    "acquisition_status": { "type": "string", "enum": ["MISSING", "IMPORTED", "VERIFIED"] },
+    "license_review_status": { "type": "string", "enum": ["VERIFIED_RESEARCH_USE", "REVIEW_REQUIRED", "USER_ACCEPTANCE_REQUIRED", "UNKNOWN"] },
+    "review_status": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["license_reviewed", "mapping_reviewed", "visual_reviewed", "reviewer", "fingerprint_matches"],
+      "properties": {
+        "license_reviewed": { "type": "boolean" },
+        "mapping_reviewed": { "type": "boolean" },
+        "visual_reviewed": { "type": "boolean" },
+        "reviewer": { "type": ["string", "null"] },
+        "fingerprint_matches": { "type": "boolean" }
+      }
+    },
+    "split_counts": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+    "image_count": { "type": "integer", "minimum": 0 },
+    "annotation_count": { "type": "integer", "minimum": 0 },
+    "missing_pairs": { "type": "array", "items": { "type": "string" } },
+    "corrupt_files": { "type": "array", "items": { "type": "string" } },
+    "dimensions": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+    "class_distribution": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+    "ignored_labels": { "type": "array", "items": { "type": ["string", "integer"] } },
+    "unknown_labels": { "type": "array", "items": { "type": ["string", "integer"] } },
+    "duplicate_count": { "type": "integer", "minimum": 0 },
+    "cross_split_leakage_count": { "type": "integer", "minimum": 0 },
+    "conversion_count": { "type": "integer", "minimum": 0 },
+    "failed_conversion_count": { "type": "integer", "minimum": 0 },
+    "output_paths": { "type": "array", "items": { "type": "string" } },
+    "fingerprint": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" },
+    "warnings": { "type": "array", "items": { "type": "string" } },
+    "blocking_errors": { "type": "array", "items": { "type": "string" } },
+    "recommended_next_action": { "type": "string", "minLength": 1 },
+    "ready_for_next_phase": { "type": "boolean" }
+  }
+}

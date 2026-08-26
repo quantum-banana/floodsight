@@ -9,6 +9,7 @@ backend/.env
 
 # Python
 .venv/
+.venv-datasets/
 venv/
 env/
 __pycache__/
@@ -47,6 +48,25 @@ mlruns/
 # Datasets
 datasets/*
 !datasets/.gitkeep
+raw/
+interim/
+processed/
+manifests/
+reports/
+inspections/
+locks/
+.dataset-cache/
+*.part
+*.extracting
+*.importing
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.tar.xz
+*.7z
+*.rar
+*.tmp
 
 # Demo media and uploads
 demo/videos/*

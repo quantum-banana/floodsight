@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://floodsight.local/schemas/dataset-lock.schema.json",
+  "title": "FloodSight dataset preparation lock",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "dataset_id", "source_reference", "acquisition_method",
+    "acquired_at", "source_fingerprint", "preparation_version", "taxonomy_version",
+    "mapping_hash", "integrity_mode", "dataset_fingerprint", "complete"
+  ],
+  "properties": {
+    "schema_version": { "const": "dataset-lock-v1" },
+    "dataset_id": { "type": "string", "minLength": 1 },
+    "source_reference": { "type": "string", "minLength": 1 },
+    "acquisition_method": { "type": "string", "minLength": 1 },
+    "acquired_at": { "type": "string", "format": "date-time" },
+    "source_fingerprint": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "preparation_version": { "type": "string", "minLength": 1 },
+    "taxonomy_version": { "type": "string", "minLength": 1 },
+    "mapping_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "integrity_mode": { "type": "string", "enum": ["fast", "full"] },
+    "dataset_fingerprint": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "complete": { "type": "boolean" }
+  }
+}

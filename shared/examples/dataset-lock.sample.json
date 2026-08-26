@@ -1,0 +1,14 @@
+{
+  "schema_version": "dataset-lock-v1",
+  "dataset_id": "floodnet",
+  "source_reference": "synthetic-fixture",
+  "acquisition_method": "user-directory",
+  "acquired_at": "2026-01-01T00:00:00Z",
+  "source_fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "preparation_version": "segmentation_v1",
+  "taxonomy_version": "segmentation-taxonomy-v1",
+  "mapping_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "integrity_mode": "full",
+  "dataset_fingerprint": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "complete": true
+}

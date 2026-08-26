@@ -39,5 +39,9 @@ try {
     Pop-Location
 }
 
-Write-Host "FloodSight Phase 2 setup completed successfully." -ForegroundColor Green
+Write-Host "Installing isolated FloodSight dataset tooling ..." -ForegroundColor Cyan
+& (Join-Path $ProjectRoot "scripts\datasets\setup.ps1")
+if ($LASTEXITCODE -ne 0) { throw "Dataset-tooling setup failed." }
+
+Write-Host "FloodSight Phase 3 setup completed successfully." -ForegroundColor Green
 Write-Host "Run .\scripts\dev.ps1 to start the development services."

@@ -1,0 +1,17 @@
+dataset_id: floodnet
+task_type: SEMANTIC_SEGMENTATION
+mapping_version: floodnet-mapping-v1
+taxonomy_version: segmentation-taxonomy-v1
+real_data_review_required: true
+source_id_basis: "Official repository class order; IDs and RGB aliases remain candidates until an imported source inventory is reviewed."
+mappings:
+  - {source_id: 0, source_name: background, target_id: 0, target_name: background_other, action: MAP, explanation: "Background and unmodelled scene content.", source_support: official-class-list, review_status: REVIEW_REQUIRED, colors: [[0, 0, 0]]}
+  - {source_id: 1, source_name: building_flooded, target_id: 6, target_name: building_flooded, action: MAP, explanation: "Direct flooded-building support.", source_support: official-class-list, review_status: REVIEW_REQUIRED, colors: [[255, 0, 0]]}
+  - {source_id: 2, source_name: building_non_flooded, target_id: 5, target_name: building_normal, action: MAP, explanation: "Non-flooded is the supported normal-building state; it does not imply damage inspection.", source_support: official-class-list, review_status: REVIEW_REQUIRED, colors: [[180, 120, 120], [255, 150, 150]]}
+  - {source_id: 3, source_name: road_flooded, target_id: 3, target_name: road_flooded, action: MAP, explanation: "Flooded road remains distinct from physical blockage.", source_support: official-class-list, review_status: REVIEW_REQUIRED, colors: [[160, 150, 20]]}
+  - {source_id: 4, source_name: road_non_flooded, target_id: 2, target_name: road_clear, action: MAP, explanation: "Non-flooded supports clear-of-flood only; operational traversability still needs later evidence.", source_support: official-class-list, review_status: REVIEW_REQUIRED, colors: [[140, 140, 140]]}
+  - {source_id: 5, source_name: water, target_id: 1, target_name: water, action: MAP, explanation: "Direct water support.", source_support: official-class-list, review_status: REVIEW_REQUIRED, colors: [[61, 230, 250], [0, 0, 255]]}
+  - {source_id: 6, source_name: tree, target_id: 11, target_name: vegetation, action: MERGE, explanation: "Tree is merged into the broader vegetation training class.", source_support: official-class-list, review_status: REVIEW_REQUIRED, colors: [[0, 255, 0]]}
+  - {source_id: 7, source_name: vehicle, target_id: 10, target_name: vehicle, action: MAP, explanation: "Direct semantic vehicle support.", source_support: official-class-list, review_status: REVIEW_REQUIRED, colors: [[255, 0, 245], [255, 0, 255]]}
+  - {source_id: 8, source_name: pool, target_id: 1, target_name: water, action: MERGE, explanation: "Pool is merged into water; it is not evidence of flooding.", source_support: official-class-list, review_status: REVIEW_REQUIRED, colors: [[0, 255, 255]]}
+  - {source_id: 9, source_name: grass, target_id: 11, target_name: vegetation, action: MERGE, explanation: "Grass is merged into vegetation.", source_support: official-class-list, review_status: REVIEW_REQUIRED, colors: [[255, 255, 0]]}

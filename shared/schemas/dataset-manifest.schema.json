@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://floodsight.local/schemas/dataset-manifest.schema.json",
+  "title": "FloodSight dataset manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "manifest_id", "dataset_id", "task_type", "source_version",
+    "preparation_version", "taxonomy_version", "integrity_mode", "created_at",
+    "tool_version", "fingerprint", "samples"
+  ],
+  "properties": {
+    "schema_version": { "const": "dataset-manifest-v1" },
+    "manifest_id": { "type": "string", "minLength": 1 },
+    "dataset_id": { "type": "string", "enum": ["floodnet", "rescuenet", "visdrone_det"] },
+    "task_type": { "type": "string", "enum": ["SEMANTIC_SEGMENTATION", "AERIAL_DETECTION"] },
+    "source_version": { "type": "string", "minLength": 1 },
+    "preparation_version": { "type": "string", "minLength": 1 },
+    "taxonomy_version": { "type": "string", "minLength": 1 },
+    "integrity_mode": { "type": "string", "enum": ["fast", "full"] },
+    "created_at": { "type": "string", "format": "date-time" },
+    "tool_version": { "type": "string", "minLength": 1 },
+    "fingerprint": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "samples": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/sample" }
+    }
+  },
+  "$defs": {
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?![A-Za-z]:)(?!/)(?!\\\\).+"
+    },
+    "counts": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[0-9]+$" },
+      "additionalProperties": { "type": "integer", "minimum": 0 }
+    },
+    "sample": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sample_id", "source_dataset", "source_split", "target_split", "image_path",
+        "source_annotation_path", "target_annotation_path", "width", "height",
+        "image_hash", "annotation_hash", "class_counts", "ignored_count", "invalid_count",
+        "preparation_version", "taxonomy_version", "objects"
+      ],
+      "properties": {
+        "sample_id": { "type": "string", "minLength": 1 },
+        "source_dataset": { "type": "string", "minLength": 1 },
+        "source_split": { "type": "string", "minLength": 1 },
+        "target_split": { "type": "string", "minLength": 1 },
+        "image_path": { "$ref": "#/$defs/relativePath" },
+        "source_annotation_path": { "$ref": "#/$defs/relativePath" },
+        "target_annotation_path": { "$ref": "#/$defs/relativePath" },
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 },
+        "image_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "annotation_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "class_counts": { "$ref": "#/$defs/counts" },
+        "ignored_count": { "type": "integer", "minimum": 0 },
+        "invalid_count": { "type": "integer", "minimum": 0 },
+        "preparation_version": { "type": "string", "minLength": 1 },
+        "taxonomy_version": { "type": "string", "minLength": 1 },
+        "objects": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["source_class_id", "target_class_id", "truncation", "occlusion", "clamped"],
+            "properties": {
+              "source_class_id": { "type": "integer", "minimum": 0 },
+              "target_class_id": { "type": "integer", "minimum": 0 },
+              "truncation": { "type": "integer", "minimum": 0 },
+              "occlusion": { "type": "integer", "minimum": 0 },
+              "clamped": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

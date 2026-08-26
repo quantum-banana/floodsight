@@ -1,0 +1,22 @@
+canonical_id: floodnet
+display_name: FloodNet Supervised v1.0
+task_type: SEMANTIC_SEGMENTATION
+official_reference: https://github.com/BinaLab/FloodNet-Supervised_v1.0
+citation: "Rahnemoonfar et al. (2021), FloodNet: A High Resolution Aerial Imagery Dataset for Post Flood Scene Understanding, IEEE Access."
+license_reference: https://cdla.dev/permissive-1-0/
+license_review_state: USER_ACCEPTANCE_REQUIRED
+expected_splits: [train, val, test]
+annotation_type: indexed-or-RGB semantic PNG mask
+acquisition_methods: [official-manual-download, user-archive, user-directory]
+expected_source_structure:
+  - official train, validation, and test image sets
+  - paired semantic PNG masks or colour masks
+source_version_notes: "Official repository describes 2,343 Hurricane Harvey UAV images and a 60/20/20 split. Actual archive layout and palette must be inventoried."
+preparation_version: segmentation_v1
+required_manual_steps:
+  - Review and accept the official dataset terms.
+  - Download from the official provider, then import the archive or extracted directory.
+commercial_use_requires_review: true
+source_layouts:
+  image_directory_tokens: [image, images, org-img, org_img]
+  annotation_directory_tokens: [mask, masks, label, labels, label-img, color-mask]

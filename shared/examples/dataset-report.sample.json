@@ -1,0 +1,33 @@
+{
+  "schema_version": "dataset-report-v1",
+  "dataset_id": "floodnet",
+  "source_version": "synthetic-fixture",
+  "acquisition_status": "IMPORTED",
+  "license_review_status": "USER_ACCEPTANCE_REQUIRED",
+  "review_status": {
+    "license_reviewed": true,
+    "mapping_reviewed": true,
+    "visual_reviewed": true,
+    "reviewer": "Synthetic fixture reviewer",
+    "fingerprint_matches": true
+  },
+  "split_counts": {"train": 1},
+  "image_count": 1,
+  "annotation_count": 1,
+  "missing_pairs": [],
+  "corrupt_files": [],
+  "dimensions": {"4x4": 1},
+  "class_distribution": {"0": 8, "1": 8},
+  "ignored_labels": [],
+  "unknown_labels": [],
+  "duplicate_count": 0,
+  "cross_split_leakage_count": 0,
+  "conversion_count": 1,
+  "failed_conversion_count": 0,
+  "output_paths": ["processed/segmentation_v1/floodnet"],
+  "fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "warnings": ["Synthetic fixture only; real data has not been reviewed."],
+  "blocking_errors": [],
+  "recommended_next_action": "Review real source data before training.",
+  "ready_for_next_phase": true
+}

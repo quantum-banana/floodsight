@@ -2,10 +2,15 @@ $ErrorActionPreference = "Stop"
 
 $ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $VirtualPython = Join-Path $ProjectRoot ".venv\Scripts\python.exe"
+$DatasetPython = Join-Path $ProjectRoot ".venv-datasets\Scripts\python.exe"
 $FrontendPath = Join-Path $ProjectRoot "frontend"
 $NodeModules = Join-Path $FrontendPath "node_modules"
 
-if (-not (Test-Path -LiteralPath $VirtualPython) -or -not (Test-Path -LiteralPath $NodeModules)) {
+if (
+    -not (Test-Path -LiteralPath $VirtualPython) -or
+    -not (Test-Path -LiteralPath $DatasetPython) -or
+    -not (Test-Path -LiteralPath $NodeModules)
+) {
     throw "Dependencies are missing. Run .\scripts\setup.ps1 before running checks."
 }
 
@@ -22,6 +27,18 @@ if ($LASTEXITCODE -ne 0) { throw "Backend lint failed." }
 Write-Host "Running backend tests and shared-schema validation ..." -ForegroundColor Cyan
 & $VirtualPython -m pytest (Join-Path $ProjectRoot "backend\tests")
 if ($LASTEXITCODE -ne 0) { throw "Backend tests failed." }
+
+Write-Host "Checking Phase 3 dataset tooling ..." -ForegroundColor Cyan
+& $DatasetPython -m ruff check (Join-Path $ProjectRoot "ml\floodsight_data") (Join-Path $ProjectRoot "ml\tests")
+if ($LASTEXITCODE -ne 0) { throw "Dataset-tooling lint failed." }
+& $DatasetPython -m pytest (Join-Path $ProjectRoot "ml\tests")
+if ($LASTEXITCODE -ne 0) { throw "Dataset-tooling tests failed." }
+& $DatasetPython -m floodsight_data.cli taxonomy
+if ($LASTEXITCODE -ne 0) { throw "Dataset taxonomy validation failed." }
+& $DatasetPython -m floodsight_data.cli safeguard --repository-root $ProjectRoot
+if ($LASTEXITCODE -ne 0) { throw "Repository dataset-artifact safeguard failed." }
+& $DatasetPython -m floodsight_data.cli doctor
+if ($LASTEXITCODE -ne 0) { throw "Dataset doctor failed." }
 
 Push-Location $FrontendPath
 try {
@@ -40,4 +57,4 @@ try {
     Pop-Location
 }
 
-Write-Host "All FloodSight Phase 2 checks passed." -ForegroundColor Green
+Write-Host "All FloodSight Phase 3 code gates passed." -ForegroundColor Green

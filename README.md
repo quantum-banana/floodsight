@@ -2,9 +2,9 @@
 
 **From Drone Pixels to Rescue Decisions**
 
-FloodSight is a flood-response decision-intelligence prototype. Phase 2 adds real browser video-file and webcam ingestion to the verified Phase 1 command centre. The browser previews the chosen source, samples JPEG frames through one shared canvas pipeline, and sends only those frames to FastAPI for OpenCV decode and basic image-quality checks.
+FloodSight is a flood-response decision-intelligence prototype. Phase 3 adds an isolated, cross-platform data-engineering package for safely importing, inspecting, validating, harmonising, converting, fingerprinting, and visually reviewing FloodNet, RescueNet, and VisDrone-DET. The verified Phase 2 video ingestion and command centre remain unchanged.
 
-This phase does **not** perform machine-learning inference. Incident statistics, detections, flood masks, zones, routes, events, and reports remain the deterministic `DEMO_SIMULATED` Phase 1 scenario. On actual media, those analytics are visibly separated from the video and no simulated overlays are drawn over it.
+This phase does **not** train or run a model. Incident statistics, detections, flood masks, zones, routes, events, and reports remain the deterministic `DEMO_SIMULATED` Phase 1 scenario. Local synthetic dataset tests establish code readiness only; no complete public dataset has been validated here.
 
 ## Architecture
 
@@ -20,6 +20,12 @@ FastAPI ingestion session → OpenCV BGR decode → luminance/blur quality resul
 
 FastAPI deterministic incident REST/WebSocket → Phase 1 command-centre analytics
                                                 (DEMO_SIMULATED)
+
+Official/user-provided dataset archive or directory
+        ↓ explicit external FLOODSIGHT_DATA_ROOT
+safe import → source inventory → declarative mapping → processed masks/labels
+        ↓
+deterministic manifests + fingerprints + leakage audit + inspection reports
 ```
 
 The ingestion contract is synchronized across:
@@ -63,6 +69,18 @@ Open:
 - command centre: `http://127.0.0.1:5173/`;
 - diagnostics: `http://127.0.0.1:5173/system`;
 - API docs: `http://127.0.0.1:8000/docs`.
+
+Dataset tooling uses a separate `.venv-datasets` environment and keeps full data
+outside the repository:
+
+```powershell
+$env:FLOODSIGHT_DATA_ROOT = "D:\FloodSight-Datasets"
+$env:FLOODSIGHT_DATA_CACHE = "D:\FloodSight-Cache"
+.\scripts\datasets\doctor.ps1
+```
+
+Read `docs/DATASETS.md`, `docs/TAXONOMY.md`, and
+`docs/DATASET_SERVER_RUNBOOK.md` before importing public data.
 
 ## Using media inputs
 
@@ -146,6 +164,6 @@ Add the exact frontend scheme, host, and port to `FLOODSIGHT_CORS_ORIGINS`. `loc
 | --- | --- | --- |
 | 0 | Repository foundation and frontend/backend connectivity | Complete |
 | 1 | Command-centre UI with deterministic simulated data | Complete |
-| 2 | Unified video-file and webcam frame ingestion | Implemented, pending freeze |
-| 3 | Dataset validation, inspection, and taxonomy mapping | Planned |
+| 2 | Unified video-file and webcam frame ingestion | Complete |
+| 3 | Dataset validation, taxonomy, conversion, manifests, reports | Code ready; real-data gate pending |
 | 4–10 | Model training, inference, rescue intelligence, and hardening | Planned |

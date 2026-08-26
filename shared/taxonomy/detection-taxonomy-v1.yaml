@@ -1,0 +1,11 @@
+version: detection-taxonomy-v1
+status: CANDIDATE_REQUIRES_REAL_DATA_REVIEW
+classes:
+  - {id: 0, name: person, color: [255, 92, 92]}
+  - {id: 1, name: car, color: [77, 164, 255]}
+  - {id: 2, name: van, color: [98, 201, 255]}
+  - {id: 3, name: truck, color: [255, 168, 74]}
+  - {id: 4, name: bus, color: [255, 210, 77]}
+  - {id: 5, name: bicycle, color: [94, 222, 152]}
+  - {id: 6, name: motorcycle, color: [197, 116, 255]}
+  - {id: 7, name: tricycle, color: [238, 116, 193]}

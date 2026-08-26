@@ -1,0 +1,16 @@
+version: segmentation-taxonomy-v1
+ignore_index: 255
+status: CANDIDATE_REQUIRES_REAL_DATA_REVIEW
+classes:
+  - {id: 0, name: background_other, color: [30, 34, 40]}
+  - {id: 1, name: water, color: [44, 151, 255]}
+  - {id: 2, name: road_clear, color: [88, 201, 138]}
+  - {id: 3, name: road_flooded, color: [26, 113, 196]}
+  - {id: 4, name: road_blocked, color: [230, 91, 73]}
+  - {id: 5, name: building_normal, color: [196, 205, 219]}
+  - {id: 6, name: building_flooded, color: [91, 128, 255]}
+  - {id: 7, name: building_minor_damage, color: [250, 210, 75]}
+  - {id: 8, name: building_major_damage, color: [248, 145, 54]}
+  - {id: 9, name: building_destroyed, color: [215, 54, 77]}
+  - {id: 10, name: vehicle, color: [192, 103, 255]}
+  - {id: 11, name: vegetation, color: [63, 177, 91]}

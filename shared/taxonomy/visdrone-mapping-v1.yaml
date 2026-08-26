@@ -1,0 +1,19 @@
+dataset_id: visdrone_det
+task_type: AERIAL_DETECTION
+mapping_version: visdrone-mapping-v1
+taxonomy_version: detection-taxonomy-v1
+real_data_review_required: true
+source_id_basis: "VisDrone DET specification: ignored region 0, pedestrian 1, people 2, bicycle 3, car 4, van 5, truck 6, tricycle 7, awning-tricycle 8, bus 9, motor 10, others 11."
+mappings:
+  - {source_id: 0, source_name: ignored_region, target_id: null, target_name: null, action: IGNORE, explanation: "Evaluation ignored region; never count as a person or vehicle.", source_support: official-format-specification, review_status: SPEC_VERIFIED, colors: []}
+  - {source_id: 1, source_name: pedestrian, target_id: 0, target_name: person, action: MERGE, explanation: "Pedestrian and people train the shared person class.", source_support: official-format-specification, review_status: SPEC_VERIFIED, colors: []}
+  - {source_id: 2, source_name: people, target_id: 0, target_name: person, action: MERGE, explanation: "People and pedestrian train the shared person class.", source_support: official-format-specification, review_status: SPEC_VERIFIED, colors: []}
+  - {source_id: 3, source_name: bicycle, target_id: 5, target_name: bicycle, action: MAP, explanation: "Retained as an individual aerial vehicle class.", source_support: official-format-specification, review_status: SPEC_VERIFIED, colors: []}
+  - {source_id: 4, source_name: car, target_id: 1, target_name: car, action: MAP, explanation: "Direct car support.", source_support: official-format-specification, review_status: SPEC_VERIFIED, colors: []}
+  - {source_id: 5, source_name: van, target_id: 2, target_name: van, action: MAP, explanation: "Direct van support.", source_support: official-format-specification, review_status: SPEC_VERIFIED, colors: []}
+  - {source_id: 6, source_name: truck, target_id: 3, target_name: truck, action: MAP, explanation: "Direct truck support.", source_support: official-format-specification, review_status: SPEC_VERIFIED, colors: []}
+  - {source_id: 7, source_name: tricycle, target_id: 7, target_name: tricycle, action: MERGE, explanation: "Tricycle and awning-tricycle share one target class.", source_support: official-format-specification, review_status: SPEC_VERIFIED, colors: []}
+  - {source_id: 8, source_name: awning_tricycle, target_id: 7, target_name: tricycle, action: MERGE, explanation: "Merged with tricycle while source provenance remains in the manifest.", source_support: official-format-specification, review_status: SPEC_VERIFIED, colors: []}
+  - {source_id: 9, source_name: bus, target_id: 4, target_name: bus, action: MAP, explanation: "Direct bus support.", source_support: official-format-specification, review_status: SPEC_VERIFIED, colors: []}
+  - {source_id: 10, source_name: motor, target_id: 6, target_name: motorcycle, action: MAP, explanation: "VisDrone motor maps to motorcycle.", source_support: official-format-specification, review_status: SPEC_VERIFIED, colors: []}
+  - {source_id: 11, source_name: others, target_id: null, target_name: null, action: IGNORE, explanation: "Undefined/other objects are not a coherent training class.", source_support: official-format-specification, review_status: SPEC_VERIFIED, colors: []}

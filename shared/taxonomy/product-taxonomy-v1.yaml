@@ -1,0 +1,16 @@
+version: product-taxonomy-v1
+description: Product concepts are broader than labels trainable from current Phase 3 sources.
+classes:
+  - {id: 0, name: background_other, trainable: true, color: [30, 34, 40]}
+  - {id: 1, name: water_flood, trainable: true, color: [44, 151, 255]}
+  - {id: 2, name: road_clear, trainable: true, color: [88, 201, 138]}
+  - {id: 3, name: road_flooded, trainable: true, color: [26, 113, 196]}
+  - {id: 4, name: road_blocked, trainable: true, color: [230, 91, 73]}
+  - {id: 5, name: building_normal, trainable: true, color: [196, 205, 219]}
+  - {id: 6, name: building_flooded, trainable: true, color: [91, 128, 255]}
+  - {id: 7, name: building_minor_damage, trainable: true, color: [250, 210, 75]}
+  - {id: 8, name: building_major_damage, trainable: true, color: [248, 145, 54]}
+  - {id: 9, name: building_destroyed, trainable: true, color: [215, 54, 77]}
+  - {id: 10, name: vehicle, trainable: true, color: [192, 103, 255]}
+  - {id: 11, name: vegetation, trainable: true, color: [63, 177, 91]}
+  - {id: 12, name: debris_landslide, trainable: false, color: [139, 101, 74]}

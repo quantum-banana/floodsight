@@ -1340,6 +1340,20 @@ Create:
 - training/validation/test handling
 - dataset inspection utilities
 
+#### Phase 3 implementation status
+
+Phase 3 provides isolated, cross-platform tooling for typed registry records, safe
+gated acquisition/import, actual-source inspection, declarative taxonomy mappings,
+semantic and VisDrone conversion, deterministic manifests and fingerprints, duplicate
+and split-leakage audits, health/readiness reports, and deterministic inspection
+contact sheets. It has no training or inference framework and does not alter the Phase
+2 runtime.
+
+Local synthetic fixtures may establish **PHASE 3 CODE READY** only. FloodNet,
+RescueNet, and VisDrone-DET must still be imported on an external data root,
+inventoried, converted, fully hashed, and visually reviewed before **PHASE 3 DATA
+VERIFIED** or later training is permitted.
+
 ---
 
 ### Phase 4 — Segmentation training

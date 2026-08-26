@@ -1,0 +1,1 @@
+"""RescueNet semantic-source adapter."""

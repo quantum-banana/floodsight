@@ -1,0 +1,22 @@
+canonical_id: visdrone_det
+display_name: VisDrone-DET
+task_type: AERIAL_DETECTION
+official_reference: https://github.com/VisDrone/VisDrone-Dataset
+citation: "Zhu et al. (2022), Detection and Tracking Meet Drones Challenge, IEEE TPAMI."
+license_reference: https://github.com/VisDrone/VisDrone-Dataset
+license_review_state: REVIEW_REQUIRED
+expected_splits: [train, val, test-dev]
+annotation_type: VisDrone DET comma-separated bounding boxes
+acquisition_methods: [official-manual-download, user-archive, user-directory]
+expected_source_structure:
+  - VisDrone2019-DET-<split>/images
+  - VisDrone2019-DET-<split>/annotations
+source_version_notes: "Use static-image DET only. Official links provide train, val, and labelled test-dev separately; test-challenge labels are unavailable."
+preparation_version: detection_v1
+required_manual_steps:
+  - Review the official project terms and download the required DET splits.
+  - Import each accepted archive or an extracted directory.
+commercial_use_requires_review: true
+source_layouts:
+  image_directory_tokens: [images]
+  annotation_directory_tokens: [annotations]

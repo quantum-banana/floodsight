@@ -30,5 +30,8 @@ echo "Installing FloodSight backend dependencies ..."
 echo "Installing FloodSight frontend dependencies ..."
 (cd "$PROJECT_ROOT/frontend" && npm install)
 
-echo "FloodSight Phase 2 setup completed successfully."
+echo "Installing isolated FloodSight dataset tooling ..."
+bash "$PROJECT_ROOT/scripts/datasets/setup.sh"
+
+echo "FloodSight Phase 3 setup completed successfully."
 echo "Run ./scripts/dev.sh to start the development services."

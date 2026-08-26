@@ -1,0 +1,1 @@
+"""FloodNet semantic-source adapter."""
