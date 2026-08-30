@@ -179,41 +179,47 @@ def convert_visdrone_dataset(
         image_relative = stable_relative(materialized, paths.root)
         split_images.setdefault(pair.split, []).append(image_relative)
         annotation_relative = stable_relative(pair.annotation, paths.root)
-        samples.append(
-            {
-                "sample_id": stable_sample_id(
-                    dataset_id, pair.split, stable_relative(pair.image, paths.root)
-                ),
-                "source_dataset": dataset_id,
-                "source_split": pair.split,
-                "target_split": pair.split,
-                "image_path": image_relative,
-                "source_annotation_path": annotation_relative,
-                "target_annotation_path": stable_relative(target_annotation, paths.root),
-                "width": width,
-                "height": height,
-                "image_hash": sha256_file(pair.image),
-                "annotation_hash": sha256_file(pair.annotation),
-                "class_counts": {str(key): value for key, value in sorted(class_counts.items())},
-                "ignored_count": ignored,
-                "invalid_count": 0,
-                "preparation_version": "detection_v1",
-                "taxonomy_version": taxonomy_version,
-                "objects": object_metadata,
-            }
-        )
+        image_hash = sha256_file(pair.image)
+        annotation_hash = sha256_file(pair.annotation)
+        sample = {
+            "sample_id": stable_sample_id(
+                dataset_id, pair.split, stable_relative(pair.image, paths.root)
+            ),
+            "source_dataset": dataset_id,
+            "source_split": pair.split,
+            "target_split": pair.split,
+            "image_path": image_relative,
+            "source_annotation_path": annotation_relative,
+            "target_annotation_path": stable_relative(target_annotation, paths.root),
+            "width": width,
+            "height": height,
+            "image_hash": image_hash,
+            "annotation_hash": annotation_hash,
+            "class_counts": {str(key): value for key, value in sorted(class_counts.items())},
+            "ignored_count": ignored,
+            "invalid_count": 0,
+            "preparation_version": "detection_v1",
+            "taxonomy_version": taxonomy_version,
+            "objects": object_metadata,
+        }
+        if not dry_run:
+            sample["target_image_hash"] = image_hash
+            sample["target_annotation_hash"] = sha256_file(target_annotation)
+        samples.append(sample)
         source_records.extend(
             (
                 file_integrity(
                     pair.image,
                     relative_path=stable_relative(pair.image, paths.root),
                     mode=integrity,
+                    precomputed_sha256=image_hash,
                 ),
                 file_integrity(
                     pair.annotation,
                     relative_path=annotation_relative,
                     mode=integrity,
                     annotation=True,
+                    precomputed_sha256=annotation_hash,
                 ),
             )
         )

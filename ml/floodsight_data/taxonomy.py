@@ -181,8 +181,8 @@ def mapping_markdown(mapping: MappingTable) -> str:
     rows.extend(
         (
             "",
-            "> This is a Phase 3 code-ready candidate. Real source files and palettes must be "
-            "inventoried before data-verified status.",
+            "> Source evidence is recorded per row. Human mapping, license, and visual review "
+            "remain fingerprint-bound requirements before data-verified status.",
             "",
         )
     )

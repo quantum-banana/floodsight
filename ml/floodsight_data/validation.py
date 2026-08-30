@@ -32,24 +32,35 @@ class DuplicateAudit:
         return asdict(self)
 
 
-def _group_hashes(items: Iterable[tuple[str, Path]]) -> dict[str, list[str]]:
+def _group_hashes(
+    items: Iterable[tuple[str, Path]], hash_cache: dict[Path, str]
+) -> dict[str, list[str]]:
     groups: dict[str, list[str]] = defaultdict(list)
     for label, path in items:
-        groups[sha256_file(path)].append(label)
+        digest = hash_cache.get(path)
+        if digest is None:
+            digest = sha256_file(path)
+            hash_cache[path] = digest
+        groups[digest].append(label)
     return groups
 
 
 def audit_duplicates(pairs: Iterable[SourcePair], root: Path) -> DuplicateAudit:
     pairs = tuple(pairs)
+    hash_cache: dict[Path, str] = {}
     image_groups = _group_hashes(
-        (f"{pair.split}:{pair.image.relative_to(root).as_posix()}", pair.image) for pair in pairs
+        ((f"{pair.split}:{pair.image.relative_to(root).as_posix()}", pair.image) for pair in pairs),
+        hash_cache,
     )
     annotation_groups = _group_hashes(
         (
-            f"{pair.split}:{pair.annotation.relative_to(root).as_posix()}",
-            pair.annotation,
-        )
-        for pair in pairs
+            (
+                f"{pair.split}:{pair.annotation.relative_to(root).as_posix()}",
+                pair.annotation,
+            )
+            for pair in pairs
+        ),
+        hash_cache,
     )
     duplicate_images = tuple(
         tuple(sorted(items)) for items in image_groups.values() if len(items) > 1
@@ -63,8 +74,8 @@ def audit_duplicates(pairs: Iterable[SourcePair], root: Path) -> DuplicateAudit:
     annotation_by_image: dict[str, set[str]] = defaultdict(set)
     labels_by_image: dict[str, list[str]] = defaultdict(list)
     for pair in pairs:
-        image_hash = sha256_file(pair.image)
-        annotation_by_image[image_hash].add(sha256_file(pair.annotation))
+        image_hash = hash_cache[pair.image]
+        annotation_by_image[image_hash].add(hash_cache[pair.annotation])
         labels_by_image[image_hash].append(pair.image.relative_to(root).as_posix())
     conflicts = tuple(
         tuple(sorted(labels_by_image[image_hash]))
@@ -98,6 +109,9 @@ def inspect_source(paths: DataPaths, dataset_id: str) -> dict[str, Any]:
     source_labels: Counter[int] = Counter()
     empty_annotations = 0
     corrupt_files: list[str] = []
+    invalid_detection_rows: list[dict[str, Any]] = []
+    invalid_retained_detection_rows: list[dict[str, Any]] = []
+    clipped_retained_boxes = 0
     for pair in discovery.pairs:
         extensions[pair.image.suffix.lower()] += 1
         extensions[pair.annotation.suffix.lower()] += 1
@@ -119,6 +133,35 @@ def inspect_source(paths: DataPaths, dataset_id: str) -> dict[str, Any]:
                             code="unsupported_detection_class",
                         )
                     source_labels[item.class_id] += 1
+                    entry = mapping.by_source_id[item.class_id]
+                    retained = item.score != 0 and entry.action not in {
+                        MappingAction.IGNORE,
+                        MappingAction.ERROR,
+                    }
+                    right = item.left + item.width
+                    bottom = item.top + item.height
+                    invalid = (
+                        item.width <= 0
+                        or item.height <= 0
+                        or min(float(width), right) <= max(0.0, item.left)
+                        or min(float(height), bottom) <= max(0.0, item.top)
+                    )
+                    if invalid:
+                        detail = {
+                            "file": str(pair.annotation.relative_to(root)),
+                            "line": item.line_number,
+                            "box": [item.left, item.top, item.width, item.height],
+                            "score": item.score,
+                            "source_class_id": item.class_id,
+                            "retained": retained,
+                        }
+                        invalid_detection_rows.append(detail)
+                        if retained:
+                            invalid_retained_detection_rows.append(detail)
+                    elif retained and (
+                        item.left < 0 or item.top < 0 or right > width or bottom > height
+                    ):
+                        clipped_retained_boxes += 1
         except BlockingValidationError as exc:
             if exc.code in {"image_corrupt", "annotation_corrupt"}:
                 corrupt_files.append(str(pair.image))
@@ -162,6 +205,9 @@ def inspect_source(paths: DataPaths, dataset_id: str) -> dict[str, Any]:
         ],
         "corrupt_files": corrupt_files,
         "empty_annotations": empty_annotations,
+        "invalid_detection_rows": invalid_detection_rows,
+        "invalid_retained_detection_rows": invalid_retained_detection_rows,
+        "clipped_retained_boxes": clipped_retained_boxes,
         "ignored_source_labels": ignored_labels,
         "unknown_labels": [],
         "mapping_review_required": mapping.real_data_review_required,
@@ -188,6 +234,11 @@ def validate_dataset(paths: DataPaths, dataset_id: str) -> dict[str, Any]:
         )
     if inventory["corrupt_files"]:
         blocking.append(f"{len(inventory['corrupt_files'])} corrupt files")
+    if inventory["invalid_retained_detection_rows"]:
+        blocking.append(
+            f"{len(inventory['invalid_retained_detection_rows'])} retained detection rows "
+            "have invalid boxes"
+        )
     return {
         **inventory,
         "duplicates": duplicates.to_dict(),

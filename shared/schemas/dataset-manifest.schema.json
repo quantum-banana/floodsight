@@ -7,7 +7,7 @@
   "required": [
     "schema_version", "manifest_id", "dataset_id", "task_type", "source_version",
     "preparation_version", "taxonomy_version", "integrity_mode", "created_at",
-    "tool_version", "fingerprint", "samples"
+    "tool_version", "git_commit", "fingerprint", "samples"
   ],
   "properties": {
     "schema_version": { "const": "dataset-manifest-v1" },
@@ -20,6 +20,7 @@
     "integrity_mode": { "type": "string", "enum": ["fast", "full"] },
     "created_at": { "type": "string", "format": "date-time" },
     "tool_version": { "type": "string", "minLength": 1 },
+    "git_commit": { "type": "string", "pattern": "^([a-f0-9]{40}|UNKNOWN)$" },
     "fingerprint": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
     "samples": {
       "type": "array",
@@ -58,6 +59,8 @@
         "height": { "type": "integer", "minimum": 1 },
         "image_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
         "annotation_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "target_image_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "target_annotation_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
         "class_counts": { "$ref": "#/$defs/counts" },
         "ignored_count": { "type": "integer", "minimum": 0 },
         "invalid_count": { "type": "integer", "minimum": 0 },

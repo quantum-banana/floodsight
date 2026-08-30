@@ -7,7 +7,12 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from floodsight_data.common.images import convert_source_mask, read_source_mask
+from floodsight_data.common.discovery import discover_segmentation_pairs
+from floodsight_data.common.images import (
+    convert_source_mask,
+    read_source_mask,
+    source_label_inventory,
+)
 from floodsight_data.common.materialize import MaterializationStrategy
 from floodsight_data.common.segmentation_converter import convert_segmentation_dataset
 from floodsight_data.errors import BlockingValidationError
@@ -45,6 +50,38 @@ def test_floodnet_indexed_mask_parsing(tmp_path: Path) -> None:
     assert np.array_equal(parsed, values)
 
 
+def test_indexed_mask_inventory_uses_exact_histogram_counts(tmp_path: Path) -> None:
+    path = tmp_path / "mask.png"
+    values = np.array([[0, 1, 1], [3, 3, 3]], dtype=np.uint8)
+    Image.fromarray(values, mode="L").save(path)
+
+    inventory = source_label_inventory(path, load_mapping("floodnet"))
+
+    assert inventory["labels"] == [
+        {"source_id": 0, "source_name": "background", "pixel_count": 1},
+        {"source_id": 1, "source_name": "building_flooded", "pixel_count": 2},
+        {"source_id": 3, "source_name": "road_flooded", "pixel_count": 3},
+    ]
+
+
+def test_floodnet_discovery_prefers_mask_in_the_untouched_image_tree(
+    tmp_path: Path, write_rgb_image: object, write_indexed_mask: object
+) -> None:
+    root = tmp_path / "floodnet"
+    image = root / "FloodNet-Supervised_v1.0/train/train-org-img/sample.jpg"
+    provider_mask = root / "FloodNet-Supervised_v1.0/train/train-label-img/sample_lab.png"
+    derived_mask = root / "ColorMasks-FloodNetv1.0/ColorMasks-TrainSet/sample_lab.png"
+    write_rgb_image(image)
+    write_indexed_mask(provider_mask, np.zeros((6, 8), dtype=np.uint8))
+    write_indexed_mask(derived_mask, np.zeros((6, 8), dtype=np.uint8))
+
+    discovery = discover_segmentation_pairs(root)
+
+    assert len(discovery.pairs) == 1
+    assert discovery.pairs[0].annotation == provider_mask
+    assert discovery.conflicting_annotations == ()
+
+
 def test_rescuenet_rgb_mask_parsing(tmp_path: Path) -> None:
     path = tmp_path / "mask.png"
     rgb = np.array([[[0, 0, 0], [255, 0, 0]], [[140, 140, 140], [160, 150, 20]]], dtype=np.uint8)
@@ -53,6 +90,43 @@ def test_rescuenet_rgb_mask_parsing(tmp_path: Path) -> None:
     parsed = read_source_mask(path, load_mapping("rescuenet"))
 
     assert parsed.tolist() == [[0, 5], [7, 8]]
+
+
+def test_floodnet_bundled_palette_workbook_exact_values(tmp_path: Path) -> None:
+    path = tmp_path / "mask.png"
+    colors = np.array(
+        [
+            [0, 0, 0],
+            [255, 0, 0],
+            [180, 120, 120],
+            [160, 150, 20],
+            [140, 140, 140],
+            [61, 230, 250],
+            [0, 82, 255],
+            [255, 0, 245],
+            [255, 235, 0],
+            [4, 250, 7],
+        ],
+        dtype=np.uint8,
+    ).reshape(1, 10, 3)
+    Image.fromarray(colors, mode="RGB").save(path)
+
+    parsed = read_source_mask(path, load_mapping("floodnet"))
+
+    assert parsed.tolist() == [list(range(10))]
+
+
+@pytest.mark.parametrize("color", [(0, 163, 255), (120, 120, 70)])
+def test_floodnet_unlisted_derived_mask_colors_remain_blocking(
+    tmp_path: Path, color: tuple[int, int, int]
+) -> None:
+    path = tmp_path / "mask.png"
+    Image.new("RGB", (2, 2), color).save(path)
+
+    with pytest.raises(BlockingValidationError) as error:
+        read_source_mask(path, load_mapping("floodnet"))
+
+    assert error.value.code == "unknown_mask_colors"
 
 
 def test_palette_mask_uses_known_palette_colors_when_indices_are_not_ids(tmp_path: Path) -> None:
@@ -164,6 +238,8 @@ def test_segmentation_conversion_is_atomic_preserves_raw_and_writes_manifest(
     assert result["sample_count"] == 1
     assert Image.open(output_mask).mode == "L"
     assert set(np.unique(np.asarray(Image.open(output_mask))).tolist()) <= set(range(12)) | {255}
+    assert manifest["samples"][0]["target_image_hash"] == image_before
+    assert manifest["samples"][0]["target_annotation_hash"] == sha256_file(output_mask)
     assert sha256_file(image) == image_before
     assert sha256_file(source_mask) == mask_before
     assert not list(output_mask.parent.glob("*.tmp"))

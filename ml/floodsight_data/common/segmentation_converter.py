@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
@@ -7,7 +9,7 @@ import numpy as np
 from PIL import Image
 
 from floodsight_data.common.atomic import atomic_build, atomic_write_json
-from floodsight_data.common.discovery import discover_segmentation_pairs
+from floodsight_data.common.discovery import SourcePair, discover_segmentation_pairs
 from floodsight_data.common.images import convert_source_mask, image_dimensions, read_source_mask
 from floodsight_data.common.materialize import MaterializationStrategy, materialize_image
 from floodsight_data.config import TAXONOMY_ROOT, stable_relative
@@ -22,12 +24,17 @@ from floodsight_data.hashing import (
 from floodsight_data.manifests import build_manifest, read_json, write_manifest
 from floodsight_data.paths import DataPaths
 from floodsight_data.registry import get_dataset
-from floodsight_data.taxonomy import load_mapping, load_taxonomy, validate_mapping_targets
+from floodsight_data.taxonomy import (
+    MappingTable,
+    load_mapping,
+    load_taxonomy,
+    validate_mapping_targets,
+)
 
 
 def _save_mask(path: Path, mask: np.ndarray) -> None:
     def build(temporary: Path) -> None:
-        Image.fromarray(mask, mode="L").save(temporary, format="PNG", compress_level=9)
+        Image.fromarray(mask, mode="L").save(temporary, format="PNG", compress_level=6)
 
     atomic_build(path, build)
 
@@ -41,6 +48,98 @@ def _same_mask(path: Path, expected: np.ndarray) -> bool:
         return actual.shape == expected.shape and bool(np.array_equal(actual, expected))
     except OSError:
         return False
+
+
+def _convert_pair(
+    pair: SourcePair,
+    *,
+    paths: DataPaths,
+    dataset_id: str,
+    mapping: MappingTable,
+    taxonomy_version: str,
+    valid_ids: set[int],
+    output_root: Path,
+    integrity: IntegrityMode,
+    materialization: MaterializationStrategy,
+    dry_run: bool,
+) -> tuple[dict[str, Any], tuple[dict[str, Any], dict[str, Any]], bool]:
+    width, height = image_dimensions(pair.image)
+    source_mask = read_source_mask(pair.annotation, mapping)
+    if source_mask.shape != (height, width):
+        raise BlockingValidationError(
+            f"Image/mask dimensions differ for {pair.image.name}: "
+            f"image={width}x{height}, mask={source_mask.shape[1]}x{source_mask.shape[0]}",
+            code="dimension_mismatch",
+            details=[{"image": str(pair.image), "annotation": str(pair.annotation)}],
+        )
+    target, class_counts, ignored = convert_source_mask(
+        source_mask,
+        mapping,
+        path=pair.annotation,
+        valid_target_ids=valid_ids,
+    )
+    target_mask = output_root / pair.split / "masks" / f"{pair.image.stem}.png"
+    target_image = output_root / pair.split / "images" / pair.image.name
+    resumed = False
+    if not dry_run:
+        if _same_mask(target_mask, target):
+            resumed = True
+        else:
+            _save_mask(target_mask, target)
+        materialized = materialize_image(
+            pair.image,
+            target_image,
+            strategy=materialization,
+        )
+    else:
+        materialized = (
+            pair.image if materialization is MaterializationStrategy.MANIFEST_ONLY else target_image
+        )
+    image_relative = stable_relative(materialized, paths.root)
+    annotation_relative = stable_relative(pair.annotation, paths.root)
+    target_relative = stable_relative(target_mask, paths.root)
+    image_hash = sha256_file(pair.image)
+    annotation_hash = sha256_file(pair.annotation)
+    sample = {
+        "sample_id": stable_sample_id(
+            dataset_id, pair.split, stable_relative(pair.image, paths.root)
+        ),
+        "source_dataset": dataset_id,
+        "source_split": pair.split,
+        "target_split": pair.split,
+        "image_path": image_relative,
+        "source_annotation_path": annotation_relative,
+        "target_annotation_path": target_relative,
+        "width": width,
+        "height": height,
+        "image_hash": image_hash,
+        "annotation_hash": annotation_hash,
+        "class_counts": {str(key): value for key, value in class_counts.items()},
+        "ignored_count": ignored,
+        "invalid_count": 0,
+        "preparation_version": "segmentation_v1",
+        "taxonomy_version": taxonomy_version,
+        "objects": [],
+    }
+    if not dry_run:
+        sample["target_image_hash"] = image_hash
+        sample["target_annotation_hash"] = sha256_file(target_mask)
+    source_records = (
+        file_integrity(
+            pair.image,
+            relative_path=stable_relative(pair.image, paths.root),
+            mode=integrity,
+            precomputed_sha256=image_hash,
+        ),
+        file_integrity(
+            pair.annotation,
+            relative_path=annotation_relative,
+            mode=integrity,
+            annotation=True,
+            precomputed_sha256=annotation_hash,
+        ),
+    )
+    return sample, source_records, resumed
 
 
 def convert_segmentation_dataset(
@@ -92,82 +191,30 @@ def convert_segmentation_dataset(
     samples: list[dict[str, Any]] = []
     source_records: list[dict[str, Any]] = []
     resumed = 0
-    for pair in discovery.pairs:
-        width, height = image_dimensions(pair.image)
-        source_mask = read_source_mask(pair.annotation, mapping)
-        if source_mask.shape != (height, width):
-            raise BlockingValidationError(
-                f"Image/mask dimensions differ for {pair.image.name}: "
-                f"image={width}x{height}, mask={source_mask.shape[1]}x{source_mask.shape[0]}",
-                code="dimension_mismatch",
-                details=[{"image": str(pair.image), "annotation": str(pair.annotation)}],
-            )
-        target, class_counts, ignored = convert_source_mask(
-            source_mask,
-            mapping,
-            path=pair.annotation,
-            valid_target_ids=valid_ids,
+    worker_count = min(8, os.cpu_count() or 1, len(discovery.pairs))
+
+    def process(
+        pair: SourcePair,
+    ) -> tuple[dict[str, Any], tuple[dict[str, Any], dict[str, Any]], bool]:
+        return _convert_pair(
+            pair,
+            paths=paths,
+            dataset_id=dataset_id,
+            mapping=mapping,
+            taxonomy_version=taxonomy_version,
+            valid_ids=valid_ids,
+            output_root=output_root,
+            integrity=integrity,
+            materialization=materialization,
+            dry_run=dry_run,
         )
-        target_mask = output_root / pair.split / "masks" / f"{pair.image.stem}.png"
-        target_image = output_root / pair.split / "images" / pair.image.name
-        if not dry_run:
-            if _same_mask(target_mask, target):
-                resumed += 1
-            else:
-                _save_mask(target_mask, target)
-            materialized = materialize_image(
-                pair.image,
-                target_image,
-                strategy=materialization,
-            )
-        else:
-            materialized = (
-                pair.image
-                if materialization is MaterializationStrategy.MANIFEST_ONLY
-                else target_image
-            )
-        image_relative = stable_relative(materialized, paths.root)
-        annotation_relative = stable_relative(pair.annotation, paths.root)
-        target_relative = stable_relative(target_mask, paths.root)
-        image_hash = sha256_file(pair.image)
-        annotation_hash = sha256_file(pair.annotation)
-        sample = {
-            "sample_id": stable_sample_id(
-                dataset_id, pair.split, stable_relative(pair.image, paths.root)
-            ),
-            "source_dataset": dataset_id,
-            "source_split": pair.split,
-            "target_split": pair.split,
-            "image_path": image_relative,
-            "source_annotation_path": annotation_relative,
-            "target_annotation_path": target_relative,
-            "width": width,
-            "height": height,
-            "image_hash": image_hash,
-            "annotation_hash": annotation_hash,
-            "class_counts": {str(key): value for key, value in class_counts.items()},
-            "ignored_count": ignored,
-            "invalid_count": 0,
-            "preparation_version": "segmentation_v1",
-            "taxonomy_version": taxonomy_version,
-            "objects": [],
-        }
-        samples.append(sample)
-        source_records.extend(
-            (
-                file_integrity(
-                    pair.image,
-                    relative_path=stable_relative(pair.image, paths.root),
-                    mode=integrity,
-                ),
-                file_integrity(
-                    pair.annotation,
-                    relative_path=annotation_relative,
-                    mode=integrity,
-                    annotation=True,
-                ),
-            )
-        )
+
+    with ThreadPoolExecutor(max_workers=worker_count) as executor:
+        results = executor.map(process, discovery.pairs)
+        for sample, records, was_resumed in results:
+            resumed += int(was_resumed)
+            samples.append(sample)
+            source_records.extend(records)
     mapping_path = TAXONOMY_ROOT / f"{dataset_id}-mapping-v1.yaml"
     manifest_path = paths.manifests / f"{dataset_id}-segmentation_v1.json"
     created_at = read_json(manifest_path).get("created_at") if manifest_path.is_file() else None
@@ -209,6 +256,7 @@ def convert_segmentation_dataset(
         "status": "DRY_RUN" if dry_run else "CONVERTED",
         "sample_count": len(samples),
         "resumed_count": resumed,
+        "worker_count": worker_count,
         "fingerprint": manifest["fingerprint"],
         "manifest": str(manifest_paths[0]),
         "output": str(output_root),

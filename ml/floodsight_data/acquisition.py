@@ -5,15 +5,22 @@ import os
 import shutil
 import urllib.error
 import urllib.request
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from floodsight_data.common.archive import safe_extract_archive
+from floodsight_data import __version__
+from floodsight_data.common.archive import (
+    safe_extract_archive,
+    safe_extract_archives,
+    validate_archive_type,
+)
 from floodsight_data.common.atomic import atomic_write_json
 from floodsight_data.errors import DatasetToolError
 from floodsight_data.hashing import sha256_file, stable_digest
 from floodsight_data.paths import DataPaths, ensure_contained
+from floodsight_data.provenance import repository_git_commit
 from floodsight_data.registry import DatasetRecord
 
 
@@ -85,6 +92,7 @@ def _record_import(
     source: Path,
     method: str,
     destination: Path,
+    source_archives: list[dict[str, Any]] | None = None,
 ) -> Path:
     metadata = {
         "dataset_id": record.canonical_id,
@@ -103,7 +111,13 @@ def _record_import(
         "destination": str(destination.resolve()),
         "imported_at": _utc_now(),
         "license_review_state": record.license_review_state.value,
+        "tool_version": __version__,
+        "git_commit": repository_git_commit(),
+        "raw_immutable": True,
     }
+    if source_archives is not None:
+        metadata["source_archives"] = source_archives
+        metadata["source_set_fingerprint"] = stable_digest(source_archives)
     metadata_path = paths.locks / f"{record.canonical_id}-acquisition.json"
     atomic_write_json(metadata_path, metadata)
     return metadata_path
@@ -134,6 +148,52 @@ def import_archive(
         "status": "DRY_RUN" if dry_run else "IMPORTED_NOT_VALIDATED",
         "destination": str(destination),
         "metadata": None if metadata_path is None else str(metadata_path),
+    }
+
+
+def import_archives(
+    paths: DataPaths,
+    record: DatasetRecord,
+    archives: Sequence[Path],
+    *,
+    force: bool = False,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    resolved_archives = [archive.resolve() for archive in archives]
+    source_archives = [
+        {
+            "archive_format": validate_archive_type(archive),
+            "original_filename": archive.name,
+            "source": str(archive),
+            "source_size": archive.stat().st_size,
+            "source_sha256": sha256_file(archive),
+        }
+        for archive in resolved_archives
+    ]
+    destination = ensure_contained(paths.dataset_raw(record.canonical_id), paths.root)
+    safe_extract_archives(
+        resolved_archives,
+        destination,
+        force=force,
+        dry_run=dry_run,
+    )
+    metadata_path = None
+    if not dry_run:
+        paths.locks.mkdir(parents=True, exist_ok=True)
+        metadata_path = _record_import(
+            paths,
+            record,
+            source=resolved_archives[0],
+            method="user-multi-archive",
+            destination=destination,
+            source_archives=source_archives,
+        )
+    return {
+        "dataset_id": record.canonical_id,
+        "status": "DRY_RUN" if dry_run else "IMPORTED_NOT_VALIDATED",
+        "destination": str(destination),
+        "metadata": None if metadata_path is None else str(metadata_path),
+        "source_archives": source_archives,
     }
 
 

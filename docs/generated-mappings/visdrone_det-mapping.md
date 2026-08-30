@@ -15,4 +15,4 @@
 | 10 | motor | MAP | 6 | motorcycle | SPEC_VERIFIED | VisDrone motor maps to motorcycle. |
 | 11 | others | IGNORE |  |  | SPEC_VERIFIED | Undefined/other objects are not a coherent training class. |
 
-> This is a Phase 3 code-ready candidate. Real source files and palettes must be inventoried before data-verified status.
+> Source evidence is recorded per row. Human mapping, license, and visual review remain fingerprint-bound requirements before data-verified status.

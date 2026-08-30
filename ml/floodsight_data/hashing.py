@@ -42,6 +42,7 @@ def file_integrity(
     relative_path: str,
     mode: IntegrityMode,
     annotation: bool = False,
+    precomputed_sha256: str | None = None,
 ) -> dict[str, Any]:
     stat = path.stat()
     payload: dict[str, Any] = {
@@ -50,7 +51,7 @@ def file_integrity(
         "mtime_ns": stat.st_mtime_ns,
     }
     if mode is IntegrityMode.FULL or annotation:
-        payload["sha256"] = sha256_file(path)
+        payload["sha256"] = precomputed_sha256 or sha256_file(path)
     return payload
 
 
@@ -61,6 +62,7 @@ def dataset_fingerprint(
     mapping_hashes: dict[str, str],
     preparation: dict[str, Any],
     tool_version: str,
+    git_commit: str,
 ) -> str:
     return stable_digest(
         {
@@ -69,5 +71,6 @@ def dataset_fingerprint(
             "mapping_hashes": dict(sorted(mapping_hashes.items())),
             "preparation": preparation,
             "tool_version": tool_version,
+            "git_commit": git_commit,
         }
     )

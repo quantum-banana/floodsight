@@ -11,6 +11,7 @@ from typing import Any
 from floodsight_data import __version__
 from floodsight_data.acquisition import (
     import_archive,
+    import_archives,
     import_directory,
     manual_acquisition_status,
 )
@@ -100,6 +101,15 @@ def build_parser() -> argparse.ArgumentParser:
     archive.add_argument("--archive", required=True, type=Path)
     archive.add_argument("--force", action="store_true")
     archive.add_argument("--dry-run", action="store_true")
+
+    archives = subparsers.add_parser(
+        "import-archives", help="Safely stage and atomically import multiple source archives."
+    )
+    _add_dataset(archives)
+    _add_data_root(archives)
+    archives.add_argument("--archive", required=True, action="append", type=Path)
+    archives.add_argument("--force", action="store_true")
+    archives.add_argument("--dry-run", action="store_true")
 
     directory = subparsers.add_parser(
         "import-directory", help="Import a user-provided extracted source directory."
@@ -320,6 +330,15 @@ def dispatch(args: argparse.Namespace) -> Any:
     if command == "import-archive":
         assert record is not None
         return import_archive(
+            _paths(args, create=True),
+            record,
+            args.archive,
+            force=args.force,
+            dry_run=args.dry_run,
+        )
+    if command == "import-archives":
+        assert record is not None
+        return import_archives(
             _paths(args, create=True),
             record,
             args.archive,

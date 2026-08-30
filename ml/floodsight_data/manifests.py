@@ -13,6 +13,7 @@ from floodsight_data.common.atomic import atomic_write_json, atomic_write_text
 from floodsight_data.config import SCHEMA_ROOT
 from floodsight_data.errors import DatasetToolError
 from floodsight_data.hashing import dataset_fingerprint
+from floodsight_data.provenance import repository_git_commit
 
 
 def _utc_now() -> str:
@@ -61,12 +62,14 @@ def build_manifest(
     created_at: str | None = None,
 ) -> dict[str, Any]:
     ordered_samples = sorted(samples, key=lambda item: item["sample_id"])
+    git_commit = repository_git_commit()
     fingerprint = dataset_fingerprint(
         source_records,
         taxonomy_version=taxonomy_version,
         mapping_hashes=mapping_hashes,
         preparation=preparation,
         tool_version=__version__,
+        git_commit=git_commit,
     )
     manifest = {
         "schema_version": "dataset-manifest-v1",
@@ -79,6 +82,7 @@ def build_manifest(
         "integrity_mode": integrity_mode,
         "created_at": created_at or _utc_now(),
         "tool_version": __version__,
+        "git_commit": git_commit,
         "fingerprint": fingerprint,
         "samples": ordered_samples,
     }

@@ -9,6 +9,7 @@ from floodsight_data.common.materialize import MaterializationStrategy
 from floodsight_data.errors import BlockingValidationError
 from floodsight_data.hashing import IntegrityMode
 from floodsight_data.paths import DataPaths
+from floodsight_data.validation import validate_dataset
 from floodsight_data.visdrone.converter import convert_visdrone_dataset
 from floodsight_data.visdrone.parser import parse_annotation
 
@@ -71,6 +72,8 @@ def test_visdrone_person_merge_vehicle_mapping_and_yolo_normalization(
     assert [line.split()[0] for line in lines] == ["0", "0", "1", "6"]
     assert lines[0] == "0 0.200000 0.200000 0.200000 0.200000"
     assert manifest["samples"][0]["class_counts"] == {"0": 2, "1": 1, "6": 1}
+    assert manifest["samples"][0]["target_image_hash"] == manifest["samples"][0]["image_hash"]
+    assert manifest["samples"][0]["target_annotation_hash"]
     assert (data_paths.processed / "detection_v1" / "dataset.yaml").is_file()
 
 
@@ -164,3 +167,20 @@ def test_unsupported_visdrone_class_is_blocking(
         )
 
     assert error.value.code == "unsupported_detection_class"
+
+
+def test_source_validation_reports_all_invalid_boxes_but_blocks_only_retained(
+    data_paths: DataPaths, write_rgb_image: object
+) -> None:
+    _source(
+        data_paths,
+        write_rgb_image,
+        "10,10,3,0,0,0,0,0\n20,20,4,0,1,4,0,0\n",
+    )
+
+    result = validate_dataset(data_paths, "visdrone_det")
+
+    assert len(result["invalid_detection_rows"]) == 2
+    assert len(result["invalid_retained_detection_rows"]) == 1
+    assert result["valid"] is False
+    assert result["blocking_errors"] == ["1 retained detection rows have invalid boxes"]

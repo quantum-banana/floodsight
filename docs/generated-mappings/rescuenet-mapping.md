@@ -14,4 +14,4 @@
 | 9 | tree | MERGE | 11 | vegetation | REVIEW_REQUIRED | Tree is merged into vegetation. |
 | 10 | pool | MERGE | 1 | water | REVIEW_REQUIRED | Pool is merged into water and does not imply flood exposure. |
 
-> This is a Phase 3 code-ready candidate. Real source files and palettes must be inventoried before data-verified status.
+> Source evidence is recorded per row. Human mapping, license, and visual review remain fingerprint-bound requirements before data-verified status.

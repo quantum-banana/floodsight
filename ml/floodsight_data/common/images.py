@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections import Counter
 from pathlib import Path
 
 import numpy as np
@@ -36,6 +35,15 @@ def _unknown_mask(path: Path, values: list[object], *, kind: str) -> BlockingVal
     )
 
 
+def _indexed_values(indexed: NDArray[np.integer]) -> list[int]:
+    if indexed.size == 0:
+        return []
+    minimum = int(indexed.min())
+    if minimum < 0:
+        return sorted(int(value) for value in np.unique(indexed).tolist())
+    return np.flatnonzero(np.bincount(indexed.reshape(-1))).tolist()
+
+
 def _color_array_to_ids(
     rgb: NDArray[np.uint8],
     mapping: MappingTable,
@@ -64,7 +72,7 @@ def read_source_mask(path: Path, mapping: MappingTable) -> NDArray[np.int32]:
         with Image.open(path) as image:
             if image.mode == "P":
                 indexed = np.asarray(image, dtype=np.int32)
-                unknown_ids = sorted(set(np.unique(indexed).tolist()) - set(mapping.by_source_id))
+                unknown_ids = sorted(set(_indexed_values(indexed)) - set(mapping.by_source_id))
                 if not unknown_ids:
                     return indexed.copy()
                 palette = image.getpalette()
@@ -74,7 +82,7 @@ def read_source_mask(path: Path, mapping: MappingTable) -> NDArray[np.int32]:
                 return _color_array_to_ids(rgb, mapping, path)
             if image.mode in {"1", "L", "I", "I;16"}:
                 indexed = np.asarray(image, dtype=np.int32)
-                unknown_ids = sorted(set(np.unique(indexed).tolist()) - set(mapping.by_source_id))
+                unknown_ids = sorted(set(_indexed_values(indexed)) - set(mapping.by_source_id))
                 if unknown_ids:
                     raise _unknown_mask(path, unknown_ids, kind="ids")
                 return indexed.copy()
@@ -97,8 +105,10 @@ def convert_source_mask(
     path: Path,
     valid_target_ids: set[int],
 ) -> tuple[NDArray[np.uint8], dict[int, int], int]:
-    target = np.full(source.shape, IGNORE_INDEX, dtype=np.uint8)
-    for source_id in np.unique(source).tolist():
+    source_ids = _indexed_values(source)
+    lookup_size = max(mapping.by_source_id, default=0) + 1
+    lookup = np.full(lookup_size, IGNORE_INDEX, dtype=np.uint8)
+    for source_id in source_ids:
         entry = mapping.by_source_id.get(int(source_id))
         if entry is None:
             raise _unknown_mask(path, [int(source_id)], kind="ids")
@@ -109,22 +119,45 @@ def convert_source_mask(
             )
         if entry.action in {MappingAction.MAP, MappingAction.MERGE}:
             assert entry.target_id is not None
-            target[source == source_id] = entry.target_id
-    output_ids = set(np.unique(target).tolist())
+            lookup[source_id] = entry.target_id
+    target = lookup[source]
+    output_ids = set(_indexed_values(target))
     invalid = sorted(output_ids - valid_target_ids - {IGNORE_INDEX})
     if invalid:
         raise BlockingValidationError(
             f"Conversion produced invalid target IDs in {path}: {invalid}",
             code="target_label_invalid",
         )
-    counts = Counter(int(value) for value in target.reshape(-1) if value != IGNORE_INDEX)
-    ignored = int(np.count_nonzero(target == IGNORE_INDEX))
-    return target, dict(sorted(counts.items())), ignored
+    output_counts = np.bincount(target.reshape(-1), minlength=IGNORE_INDEX + 1)
+    counts = {
+        int(value): int(count)
+        for value, count in enumerate(output_counts)
+        if count and value != IGNORE_INDEX
+    }
+    ignored = int(output_counts[IGNORE_INDEX])
+    return target, counts, ignored
 
 
 def source_label_inventory(path: Path, mapping: MappingTable) -> dict[str, object]:
-    source = read_source_mask(path, mapping)
-    counts = Counter(int(value) for value in source.reshape(-1))
+    try:
+        with Image.open(path) as image:
+            counts = image.histogram() if image.mode == "L" else None
+    except (OSError, UnidentifiedImageError) as exc:
+        raise BlockingValidationError(
+            f"Corrupt segmentation mask: {path}",
+            code="annotation_corrupt",
+            details=[{"file": str(path)}],
+        ) from exc
+    if counts is None:
+        source = read_source_mask(path, mapping)
+        counts = np.bincount(source.reshape(-1)).tolist()
+    unknown_ids = [
+        source_id
+        for source_id, count in enumerate(counts)
+        if count and source_id not in mapping.by_source_id
+    ]
+    if unknown_ids:
+        raise _unknown_mask(path, unknown_ids, kind="ids")
     return {
         "path": str(path),
         "representation": "indexed-or-resolved-color",
@@ -134,6 +167,7 @@ def source_label_inventory(path: Path, mapping: MappingTable) -> dict[str, objec
                 "source_name": mapping.by_source_id[source_id].source_name,
                 "pixel_count": count,
             }
-            for source_id, count in sorted(counts.items())
+            for source_id, count in enumerate(counts)
+            if count
         ],
     }

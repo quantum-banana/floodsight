@@ -87,4 +87,5 @@ def test_all_mapping_targets_validate_and_render_review_tables() -> None:
         validate_mapping_targets(mapping, taxonomy)
         table = mapping_markdown(mapping)
         assert "| Source ID |" in table
-        assert "Real source files" in table
+        assert "Source evidence is recorded per row" in table
+        assert "fingerprint-bound requirements" in table

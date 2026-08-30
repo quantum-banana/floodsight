@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import random
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -14,7 +15,9 @@ from floodsight_data.paths import DataPaths
 from floodsight_data.taxonomy import IGNORE_INDEX, load_taxonomy
 
 
-def _select(samples: list[dict[str, Any]], count: int, seed: int) -> list[dict[str, Any]]:
+def _select(
+    samples: list[dict[str, Any]], count: int, seed: int
+) -> list[tuple[dict[str, Any], str]]:
     if count < 1:
         raise DatasetToolError(
             "Inspection count must be positive.", code="inspection_count_invalid"
@@ -28,21 +31,35 @@ def _select(samples: list[dict[str, Any]], count: int, seed: int) -> list[dict[s
         ),
         key=lambda sample: sample["sample_id"],
     )
-    ordered = sorted(
-        samples,
-        key=lambda sample: (
-            len([value for value in sample["class_counts"].values() if value]),
-            sample["sample_id"],
-        ),
-        reverse=True,
-    )
-    rare = [sample for sample in ordered if sample not in warning_samples][
-        : min(len(ordered), max(1, count // 3))
+    selected: list[tuple[dict[str, Any], str]] = [
+        (sample, "warning: invalid-or-clamped") for sample in warning_samples[:count]
     ]
-    priority = (warning_samples + rare)[:count]
-    remaining = [sample for sample in samples if sample not in priority]
+    selected_ids = {sample["sample_id"] for sample, _ in selected}
+    totals: Counter[str] = Counter()
+    for sample in samples:
+        totals.update(sample["class_counts"])
+    for class_id, _ in sorted(totals.items(), key=lambda item: (item[1], int(item[0]))):
+        candidates = [
+            sample
+            for sample in samples
+            if sample["sample_id"] not in selected_ids
+            and int(sample["class_counts"].get(class_id, 0)) > 0
+        ]
+        if not candidates or len(selected) >= count:
+            continue
+        chosen = max(
+            candidates,
+            key=lambda sample: (int(sample["class_counts"][class_id]), sample["sample_id"]),
+        )
+        selected.append((chosen, f"rare-class-coverage:{class_id}"))
+        selected_ids.add(chosen["sample_id"])
+    remaining = [sample for sample in samples if sample["sample_id"] not in selected_ids]
     random.Random(seed).shuffle(remaining)
-    return (priority + remaining)[:count]
+    for sample in remaining:
+        if len(selected) >= count:
+            break
+        selected.append((sample, "deterministic-random"))
+    return selected
 
 
 def _fit(image: Image.Image, size: tuple[int, int] = (480, 320)) -> Image.Image:
@@ -66,7 +83,7 @@ def _segmentation_panel(paths: DataPaths, sample: dict[str, Any]) -> Image.Image
     colored = Image.fromarray(color, mode="RGB")
     blend = Image.blend(image, colored, 0.45)
     panels = [_fit(image), _fit(colored), _fit(blend)]
-    output = Image.new("RGB", (480 * 3, 365), (12, 17, 24))
+    output = Image.new("RGB", (480 * 3, 415), (12, 17, 24))
     draw = ImageDraw.Draw(output)
     for index, panel in enumerate(panels):
         output.paste(panel, (index * 480, 45))
@@ -77,6 +94,18 @@ def _segmentation_panel(paths: DataPaths, sample: dict[str, Any]) -> Image.Image
         fill=(235, 241, 248),
         font=ImageFont.load_default(),
     )
+    for index, item in enumerate(classes):
+        column = index % 6
+        row = index // 6
+        left = 12 + column * 238
+        top = 370 + row * 20
+        draw.rectangle((left, top, left + 12, top + 12), fill=item.color)
+        draw.text(
+            (left + 17, top),
+            f"{item.class_id}:{item.name}",
+            fill=(235, 241, 248),
+            font=ImageFont.load_default(),
+        )
     return output
 
 
@@ -139,7 +168,7 @@ def generate_inspection(
         _detection_panel(paths, sample)
         if dataset_id == "visdrone_det"
         else _segmentation_panel(paths, sample)
-        for sample in selected
+        for sample, _ in selected
     ]
     cell_width = max(panel.width for panel in panels)
     cell_height = max(panel.height for panel in panels)
@@ -159,7 +188,10 @@ def generate_inspection(
         "seed": seed,
         "count": len(selected),
         "contact_sheet": str(output_path.relative_to(paths.root).as_posix()),
-        "samples": [sample["sample_id"] for sample in selected],
+        "samples": [
+            {"sample_id": sample["sample_id"], "selection_reason": reason}
+            for sample, reason in selected
+        ],
     }
     index_path = output_dir / f"{split or 'all'}-inspection-index.json"
     atomic_write_json(index_path, index)
