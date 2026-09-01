@@ -92,6 +92,7 @@ export interface Detection {
   source_class?: string | null;
   source_class_id?: number | null;
   model_id?: string | null;
+  model_provenance?: "REAL_MODEL" | "PRETRAINED_FALLBACK" | "SIMULATED" | null;
 }
 
 export interface SegmentationClass {
@@ -145,6 +146,18 @@ export interface ZoneReason {
   data_origin: DataOrigin;
 }
 
+export interface ZoneAlert {
+  code: "POTENTIAL_STRANDED_PERSON";
+  title: string;
+  person_evidence: "LOW" | "MODERATE" | "HIGH";
+  flood_exposure: "LOW" | "MODERATE" | "HIGH";
+  primary_access: AccessStatus;
+  confidence: number;
+  temporal_samples: number;
+  reason_codes: string[];
+  data_origin: DataOrigin;
+}
+
 export interface Zone {
   zone_id: string;
   display_name: string;
@@ -168,6 +181,7 @@ export interface Zone {
   pool_coverage_percent?: number;
   temporal_samples?: number;
   stale?: boolean;
+  alerts?: ZoneAlert[];
 }
 
 export interface IncidentEvent {
@@ -177,6 +191,7 @@ export interface IncidentEvent {
   category: "FLOOD" | "DETECTION" | "ACCESS" | "PRIORITY" | "ROUTE" | "SYSTEM";
   message: string;
   data_origin: DataOrigin;
+  code?: string | null;
 }
 
 export interface Route {
@@ -191,6 +206,8 @@ export interface Route {
   edge_ids?: string[];
   route_cost?: number | null;
   changed_reason?: string | null;
+  changed_reason_code?: string | null;
+  previous_edge_ids?: string[];
 }
 
 export interface SceneSummary {

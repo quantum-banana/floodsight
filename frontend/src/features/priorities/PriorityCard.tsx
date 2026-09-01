@@ -16,6 +16,9 @@ const severityStyle = {
 };
 
 export function PriorityCard({ zone, selected, onSelect }: PriorityCardProps) {
+  const strandedAlert = zone.alerts?.find(
+    (alert) => alert.code === "POTENTIAL_STRANDED_PERSON",
+  );
   const damageValue = zone.building_damage_count > 0
     ? zone.building_damage_count
     : `${zone.building_damage_coverage_percent ?? 0}%`;
@@ -29,6 +32,11 @@ export function PriorityCard({ zone, selected, onSelect }: PriorityCardProps) {
             <div className="text-right"><span className="font-mono text-2xl font-semibold text-white">{zone.priority_score}</span><span className="text-[0.62rem] text-slate-600"> /100</span></div>
           </div>
           <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-400">{zone.primary_reason}</p>
+          {strandedAlert && (
+            <div className="mt-2 rounded-lg border border-rose-300/25 bg-rose-300/[0.07] px-2.5 py-2 text-[0.65rem] font-bold tracking-[0.08em] text-rose-200 uppercase">
+              Potential stranded person · {strandedAlert.person_evidence} evidence
+            </div>
+          )}
           <div className="mt-3 grid grid-cols-4 gap-1.5 text-center">
             <MiniStat label="People" value={zone.people_count} />
             <MiniStat label="Flood" value={`${zone.flood_coverage_percent}%`} />
@@ -36,7 +44,7 @@ export function PriorityCard({ zone, selected, onSelect }: PriorityCardProps) {
             <MiniStat label="Confidence" value={formatConfidence(zone.confidence)} />
           </div>
           <div className="mt-3 flex items-center justify-between gap-2 border-t border-white/[0.05] pt-3">
-            <span className="inline-flex items-center gap-1.5 text-[0.65rem] text-slate-500"><Icon name="road" className="h-3 w-3" />{zone.road_condition.replaceAll("_", " ")}</span>
+            <span className="inline-flex items-center gap-1.5 text-[0.65rem] text-slate-500"><Icon name="road" className="h-3 w-3" />{zone.road_condition === "UNKNOWN" ? "UNCERTAIN" : zone.road_condition.replaceAll("_", " ")}</span>
             <button type="button" onClick={onSelect} className="inline-flex min-h-8 items-center gap-1 rounded-lg px-2 text-[0.68rem] font-semibold text-cyan-300 hover:bg-cyan-300/[0.07] focus-visible:outline-2 focus-visible:outline-cyan-300">View zone <Icon name="chevron" className="h-3 w-3" /></button>
           </div>
         </div>

@@ -116,6 +116,7 @@ class FusedScene(ContractModel):
     flood_class_ids: list[int]
     pool_class_id: int | None
     provenance: list[EvidenceSource]
+    detection_reused: bool = False
 
     @model_validator(mode="after")
     def keep_pool_separate(self) -> Self:

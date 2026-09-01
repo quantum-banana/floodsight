@@ -124,6 +124,7 @@ class Detection(ContractModel):
     source_class: str | None = None
     source_class_id: int | None = Field(default=None, ge=0)
     model_id: str | None = None
+    model_provenance: Literal["REAL_MODEL", "PRETRAINED_FALLBACK", "SIMULATED"] | None = None
 
 
 class SegmentationState(StrEnum):
@@ -214,6 +215,24 @@ class ZoneReason(ContractModel):
     data_origin: DataOrigin
 
 
+class EvidenceLevel(StrEnum):
+    LOW = "LOW"
+    MODERATE = "MODERATE"
+    HIGH = "HIGH"
+
+
+class ZoneAlert(ContractModel):
+    code: Literal["POTENTIAL_STRANDED_PERSON"] = "POTENTIAL_STRANDED_PERSON"
+    title: str = "Potential stranded person"
+    person_evidence: EvidenceLevel
+    flood_exposure: EvidenceLevel
+    primary_access: AccessStatus
+    confidence: UnitInterval
+    temporal_samples: int = Field(ge=1)
+    reason_codes: list[str] = Field(min_length=2)
+    data_origin: DataOrigin = DataOrigin.DERIVED_ANALYTIC
+
+
 class Zone(ContractModel):
     zone_id: str = Field(min_length=1)
     display_name: str = Field(min_length=1)
@@ -237,6 +256,7 @@ class Zone(ContractModel):
     pool_coverage_percent: Percentage = 0
     temporal_samples: int = Field(default=1, ge=1)
     stale: bool = False
+    alerts: list[ZoneAlert] = Field(default_factory=list)
 
 
 class EventSeverity(StrEnum):
@@ -261,6 +281,7 @@ class IncidentEvent(ContractModel):
     category: EventCategory
     message: str = Field(min_length=1)
     data_origin: DataOrigin
+    code: str | None = None
 
 
 class RouteStatus(StrEnum):
@@ -280,6 +301,8 @@ class Route(ContractModel):
     edge_ids: list[str] = Field(default_factory=list)
     route_cost: NonNegativeNumber | None = None
     changed_reason: str | None = None
+    changed_reason_code: str | None = None
+    previous_edge_ids: list[str] = Field(default_factory=list)
 
 
 class SceneSummary(ContractModel):

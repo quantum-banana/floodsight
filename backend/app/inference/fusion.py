@@ -84,4 +84,5 @@ class SceneFusionEngine:
             flood_class_ids=flood_ids,
             pool_class_id=pool.class_id if pool else None,
             provenance=list(dict.fromkeys(provenance)),
+            detection_reused=detection.reused_from_previous if detection is not None else False,
         )

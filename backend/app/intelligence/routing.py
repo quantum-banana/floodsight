@@ -10,6 +10,9 @@ from app.schemas.live_result import DataOrigin, Point, Road, RoadState, Route, R
 
 
 class AccessibilityEngine:
+    def __init__(self, *, unsafe_flood_coverage_percent: float = 20.0) -> None:
+        self.unsafe_flood_coverage_percent = unsafe_flood_coverage_percent
+
     def build(self, cells: list[GridCellEvidence]) -> AccessibilityGraph:
         by_id = {cell.cell_id: cell for cell in cells}
         nodes = {
@@ -28,7 +31,15 @@ class AccessibilityEngine:
                 state = max((current.road_state, other.road_state), key=_road_priority)
                 confidence = max(current.confidence, other.confidence)
                 uncertainty = 1.0 - confidence
-                enabled = state is not RoadState.BLOCKED
+                flooded_coverage = max(
+                    current.road_flooded_coverage_percent,
+                    other.road_flooded_coverage_percent,
+                )
+                unsafe_flood = (
+                    state is RoadState.FLOODED
+                    and flooded_coverage >= self.unsafe_flood_coverage_percent
+                )
+                enabled = state is not RoadState.BLOCKED and not unsafe_flood
                 penalty = {
                     RoadState.CLEAR: 0.0,
                     RoadState.UNKNOWN: 1.5,
@@ -42,12 +53,15 @@ class AccessibilityEngine:
                         end_node=other_id,
                         geometry=[nodes[cell_id], nodes[other_id]],
                         state=state,
-                        severity={
-                            RoadState.CLEAR: 0.0,
-                            RoadState.UNKNOWN: 0.25,
-                            RoadState.FLOODED: 0.65,
-                            RoadState.BLOCKED: 1.0,
-                        }[state],
+                        severity=max(
+                            {
+                                RoadState.CLEAR: 0.0,
+                                RoadState.UNKNOWN: 0.25,
+                                RoadState.FLOODED: 0.65,
+                                RoadState.BLOCKED: 1.0,
+                            }[state],
+                            min(1.0, flooded_coverage / 40.0),
+                        ),
                         uncertainty=round(uncertainty, 4),
                         travel_cost=round(1.0 + penalty + uncertainty * 2.0, 4),
                         enabled=enabled,
@@ -94,7 +108,15 @@ class RoutingEngine:
             if target in graph.nodes
         ]
         available = [item for item in candidates if item is not None]
+        previous = self._previous_edges.get(zone_id)
+        by_edge_id = {edge.edge_id: edge for edge in graph.edges}
+        previous_unsafe = [
+            edge_id
+            for edge_id in previous or ()
+            if edge_id not in by_edge_id or not by_edge_id[edge_id].enabled
+        ]
         if not available:
+            unsafe_change = bool(previous_unsafe)
             return (
                 Route(
                     route_id=f"ROUTE-{zone_id}",
@@ -107,19 +129,43 @@ class RoutingEngine:
                     data_origin=DataOrigin.DERIVED_ANALYTIC,
                     edge_ids=[],
                     route_cost=None,
-                    changed_reason="Target is inaccessible in the current relative graph.",
+                    changed_reason=(
+                        "Previous route no longer preferred; primary access became unsafe "
+                        "and no enabled relative alternative is available."
+                        if unsafe_change
+                        else "Target is inaccessible in the current relative graph."
+                    ),
+                    changed_reason_code=(
+                        "ROUTE_CHANGED_PRIMARY_ACCESS_UNSAFE" if unsafe_change else None
+                    ),
+                    previous_edge_ids=list(previous or ()),
                 ),
                 [],
             )
         cost, nodes, edge_ids = min(available, key=lambda item: (item[0], item[1]))
-        previous = self._previous_edges.get(zone_id)
         current = tuple(edge_ids)
         changed_reason = None
+        changed_reason_code = None
         if previous is not None and previous != current:
-            changed_reason = "Route changed because accessibility evidence changed."
+            if previous_unsafe:
+                changed_reason_code = "ROUTE_CHANGED_PRIMARY_ACCESS_UNSAFE"
+                changed_reason = (
+                    "Previous route no longer preferred; primary access became unsafe. "
+                    "A new relative route is recommended."
+                )
+            else:
+                changed_reason_code = "ROUTE_CHANGED_ACCESS_EVIDENCE"
+                changed_reason = "Route changed because accessibility evidence changed."
         self._previous_edges[zone_id] = current
         route = self._route_model(
-            zone_id, graph, cost, nodes, edge_ids, changed_reason=changed_reason
+            zone_id,
+            graph,
+            cost,
+            nodes,
+            edge_ids,
+            changed_reason=changed_reason,
+            changed_reason_code=changed_reason_code,
+            previous_edge_ids=list(previous or ()),
         )
         alternatives = self._alternatives(graph, zone_id, nodes[-1], edge_ids)
         return route, alternatives
@@ -158,6 +204,8 @@ class RoutingEngine:
         route_id: str | None = None,
         label: str = "Recommended relative route",
         changed_reason: str | None = None,
+        changed_reason_code: str | None = None,
+        previous_edge_ids: list[str] | None = None,
     ) -> Route:
         return Route(
             route_id=route_id or f"ROUTE-{zone_id}",
@@ -173,6 +221,8 @@ class RoutingEngine:
             edge_ids=edge_ids,
             route_cost=round(cost, 4),
             changed_reason=changed_reason,
+            changed_reason_code=changed_reason_code,
+            previous_edge_ids=previous_edge_ids or [],
         )
 
     @staticmethod

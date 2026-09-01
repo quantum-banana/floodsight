@@ -5,6 +5,14 @@ from app.schemas.base import ContractModel
 from app.schemas.live_result import AccessStatus, Point, RoadState
 
 
+class PersonSpatialEvidence(ContractModel):
+    detection_id: str = Field(min_length=1)
+    confidence: float = Field(ge=0, le=1)
+    bottom_center: Point
+    local_flood_coverage_percent: float = Field(ge=0, le=100)
+    local_damage_coverage_percent: float = Field(ge=0, le=100)
+
+
 class GridCellEvidence(ContractModel):
     cell_id: str = Field(pattern=r"^[A-D][1-4]$")
     row: int = Field(ge=0, le=3)
@@ -13,6 +21,7 @@ class GridCellEvidence(ContractModel):
     flood_coverage_percent: float = Field(ge=0, le=100)
     pool_coverage_percent: float = Field(ge=0, le=100)
     person_confidences: list[float]
+    person_evidence: list[PersonSpatialEvidence] = Field(default_factory=list)
     vehicle_count: int = Field(ge=0)
     building_damage_coverage_percent: float = Field(ge=0, le=100)
     road_clear_coverage_percent: float = Field(ge=0, le=100)
@@ -36,6 +45,8 @@ class ZoneCandidate(ContractModel):
     polygon: list[Point] = Field(min_length=4)
     timestamp_ms: int = Field(ge=0)
     person_confidences: list[float]
+    person_evidence: list[PersonSpatialEvidence] = Field(default_factory=list)
+    person_observation_fresh: bool = True
     vehicle_count: int = Field(ge=0)
     flood_coverage_percent: float = Field(ge=0, le=100)
     pool_coverage_percent: float = Field(ge=0, le=100)
@@ -54,6 +65,9 @@ class OperationalZone(ContractModel):
     timestamp_ms: int = Field(ge=0)
     people_count: int = Field(ge=0)
     max_person_confidence: float = Field(ge=0, le=1)
+    person_evidence_samples: int = Field(default=0, ge=0)
+    person_local_flood_coverage_percent: float = Field(default=0, ge=0, le=100)
+    person_local_damage_coverage_percent: float = Field(default=0, ge=0, le=100)
     vehicle_count: int = Field(ge=0)
     flood_coverage_percent: float = Field(ge=0, le=100)
     pool_coverage_percent: float = Field(ge=0, le=100)

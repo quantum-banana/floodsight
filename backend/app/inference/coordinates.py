@@ -25,6 +25,11 @@ def bbox_center(box: BoundingBox) -> Point:
     return Point(x=box.x + box.width / 2, y=box.y + box.height / 2)
 
 
+def bbox_bottom_center(box: BoundingBox) -> Point:
+    """Return the normalized ground-contact proxy for an object box."""
+    return Point(x=box.x + box.width / 2, y=min(1.0, box.y + box.height))
+
+
 def grid_cell_for_point(point: Point, *, rows: int = 4, columns: int = 4) -> str:
     if rows < 1 or columns < 1 or rows > 26:
         raise ValueError("grid dimensions are invalid")

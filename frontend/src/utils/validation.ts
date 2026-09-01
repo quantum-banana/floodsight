@@ -69,6 +69,12 @@ const isDetection = (value: unknown) =>
   isString(value.label) &&
   isNumber(value.confidence) &&
   isBoundingBox(value.bbox) &&
+  (value.model_provenance === undefined ||
+    value.model_provenance === null ||
+    isOneOf(
+      value.model_provenance,
+      ["REAL_MODEL", "PRETRAINED_FALLBACK", "SIMULATED"] as const,
+    )) &&
   isOriginRecord(value);
 
 const isSegmentationClass = (value: unknown) =>
@@ -116,6 +122,19 @@ const isZoneReason = (value: unknown) =>
   isNumber(value.contribution) &&
   isOriginRecord(value);
 
+const isZoneAlert = (value: unknown) =>
+  isRecord(value) &&
+  value.code === "POTENTIAL_STRANDED_PERSON" &&
+  isString(value.title) &&
+  isOneOf(value.person_evidence, ["LOW", "MODERATE", "HIGH"] as const) &&
+  isOneOf(value.flood_exposure, ["LOW", "MODERATE", "HIGH"] as const) &&
+  isOneOf(value.primary_access, accessStates) &&
+  isNumber(value.confidence) &&
+  isNumber(value.temporal_samples) &&
+  Array.isArray(value.reason_codes) &&
+  value.reason_codes.every(isString) &&
+  isOriginRecord(value);
+
 const isZone = (value: unknown) =>
   isRecord(value) &&
   isString(value.zone_id) &&
@@ -134,6 +153,8 @@ const isZone = (value: unknown) =>
   isString(value.primary_reason) &&
   Array.isArray(value.reasons) &&
   value.reasons.every(isZoneReason) &&
+  (value.alerts === undefined ||
+    (Array.isArray(value.alerts) && value.alerts.every(isZoneAlert))) &&
   isNumber(value.updated_at_ms) &&
   isOriginRecord(value);
 

@@ -14,7 +14,13 @@ interface TacticalMapProps {
 }
 
 const roadStroke = (state: string) =>
-  state === "BLOCKED" ? "#fb7185" : state === "FLOODED" ? "#38bdf8" : "#34d399";
+  state === "BLOCKED"
+    ? "#fb7185"
+    : state === "FLOODED"
+      ? "#38bdf8"
+      : state === "UNKNOWN"
+        ? "#fbbf24"
+        : "#34d399";
 
 const severityStroke = (severity: string) =>
   severity === "CRITICAL" ? "#fb4f64" : severity === "HIGH" ? "#fb923c" : severity === "MODERATE" ? "#facc15" : "#34d399";
@@ -82,10 +88,18 @@ export function TacticalMap({
           <g transform="translate(7 86)"><circle r="3.5" fill="#071016" stroke="#67e8f9" strokeWidth="0.6" /><path d="M-1.7 0h3.4M0-1.7v3.4" stroke="#67e8f9" strokeWidth="0.7" /><text x="5" y="1" fill="#a5f3fc" fontSize="2.5" fontWeight="700">RESCUE BASE</text></g>
         </svg>
         {!snapshot.route && <div className="absolute right-3 bottom-3 rounded-lg border border-white/[0.07] bg-[#071016]/85 px-3 py-2 text-[0.65rem] text-slate-500">Route pending in this snapshot</div>}
+        {snapshot.route?.changed_reason && (
+          <div className="absolute right-3 bottom-3 max-w-xs rounded-lg border border-amber-300/25 bg-[#071016]/90 px-3 py-2 text-[0.65rem] leading-5 text-amber-100 shadow-xl">
+            <strong className="block tracking-wide uppercase">Previous route no longer preferred</strong>
+            <span className="block text-slate-300">New route: {snapshot.route.label}</span>
+            <span className="block text-slate-500">{snapshot.route.changed_reason}</span>
+            {snapshot.route.changed_reason_code && <code className="mt-1 block text-[0.58rem] text-amber-200">{snapshot.route.changed_reason_code}</code>}
+          </div>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-white/[0.06] px-4 py-3 text-[0.62rem] font-medium tracking-wide text-slate-500 uppercase">
-        <Legend color="bg-sky-400" label="Flood" /><Legend color="bg-rose-400" label="Critical" /><Legend color="bg-orange-400" label="High" /><Legend color="bg-yellow-400" label="Moderate" /><Legend color="bg-emerald-400" label="Accessible" /><Legend color="bg-cyan-200" label="Relative route" />
+        <Legend color="bg-sky-400" label="Flood" /><Legend color="bg-rose-400" label="Critical" /><Legend color="bg-orange-400" label="High" /><Legend color="bg-yellow-400" label="Moderate" /><Legend color="bg-emerald-400" label="Accessible" /><Legend color="bg-amber-400" label="Uncertain road" /><Legend color="bg-cyan-200" label="Relative route" />
       </div>
     </section>
   );

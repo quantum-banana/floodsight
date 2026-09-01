@@ -36,17 +36,13 @@ LIVE_SCHEMA = json.loads(
     (PROJECT_ROOT / "shared/schemas/live-result.schema.json").read_text(encoding="utf-8")
 )
 FRAME_INTELLIGENCE_SCHEMA = json.loads(
-    (PROJECT_ROOT / "shared/schemas/frame-intelligence.schema.json").read_text(
-        encoding="utf-8"
-    )
+    (PROJECT_ROOT / "shared/schemas/frame-intelligence.schema.json").read_text(encoding="utf-8")
 )
 MODEL = ModelIdentity(model_id="stub", architecture="stub", version="test")
 
 
 class StubSegmentationAdapter:
-    def infer(
-        self, frame: np.ndarray, *, frame_id: int, timestamp_ms: int
-    ) -> SegmentationResult:
+    def infer(self, frame: np.ndarray, *, frame_id: int, timestamp_ms: int) -> SegmentationResult:
         height, width = frame.shape[:2]
         class_map = np.zeros((height, width), dtype=np.uint8)
         class_map[height // 4 : height // 2, width // 4 : width // 2] = 1
@@ -78,9 +74,7 @@ class StubSegmentationAdapter:
 
 
 class StubDetectionAdapter:
-    def infer(
-        self, frame: np.ndarray, *, frame_id: int, timestamp_ms: int
-    ) -> DetectionResult:
+    def infer(self, frame: np.ndarray, *, frame_id: int, timestamp_ms: int) -> DetectionResult:
         height, width = frame.shape[:2]
         return DetectionResult(
             frame_id=frame_id,
@@ -101,7 +95,47 @@ class StubDetectionAdapter:
             ],
             inference_latency_ms=1,
             device="cpu",
-            provenance_mode=DetectionProvenance.REAL_MODEL,
+            provenance_mode=DetectionProvenance.PRETRAINED_FALLBACK,
+        )
+
+
+class RoadTransitionSegmentationAdapter:
+    def infer(self, frame: np.ndarray, *, frame_id: int, timestamp_ms: int) -> SegmentationResult:
+        height, width = frame.shape[:2]
+        class_map = np.full((height, width), 4, dtype=np.uint8)
+        class_map[height // 4 : height // 2, width // 4 : width // 2] = 1
+        if frame_id >= 2:
+            class_map[height // 2 : 3 * height // 4, : width // 4] = 5
+        statistics = [
+            SegmentationClassStatistic(
+                class_id=class_id,
+                class_name=name,
+                pixel_count=int(np.count_nonzero(class_map == class_id)),
+                coverage_percent=float(
+                    np.count_nonzero(class_map == class_id) * 100 / class_map.size
+                ),
+                mean_confidence=0.9 if np.any(class_map == class_id) else 0,
+            )
+            for class_id, name in (
+                (0, "background_other"),
+                (1, "water"),
+                (4, "road_clear"),
+                (5, "road_blocked"),
+                (15, "pool"),
+            )
+        ]
+        return SegmentationResult(
+            frame_id=frame_id,
+            timestamp_ms=timestamp_ms,
+            source_width=width,
+            source_height=height,
+            model=MODEL,
+            taxonomy_version="segmentation-taxonomy-v2",
+            mask=encode_mask(class_map),
+            class_statistics=statistics,
+            inference_latency_ms=2,
+            device="cpu",
+            provenance_mode=SegmentationProvenance.REAL_MODEL,
         )
 
 
@@ -127,7 +161,12 @@ def test_end_to_end_stub_pipeline_serializes_backend_decisions() -> None:
     pipeline.segmentation_adapter = StubSegmentationAdapter()  # type: ignore[assignment]
     pipeline.detection_adapter = StubDetectionAdapter()  # type: ignore[assignment]
     pipeline._segmentation_status = _ready_status()
-    pipeline._detection_status = _ready_status()
+    pipeline._detection_status = _ready_status().model_copy(
+        update={
+            "mode": ModelOperationalMode.FALLBACK,
+            "provenance_mode": "PRETRAINED_FALLBACK",
+        }
+    )
     pipeline._initialized = True
 
     result = pipeline.process(
@@ -146,6 +185,11 @@ def test_end_to_end_stub_pipeline_serializes_backend_decisions() -> None:
     assert result.statistics.damaged_buildings.value == 0
     assert result.scene_summary is not None
     assert result.scene_summary.pool_coverage_percent == 0
+    assert result.zones[0].alerts[0].code == "POTENTIAL_STRANDED_PERSON"
+    assert "PERSON_IN_HIGH_FLOOD_ZONE" in result.zones[0].alerts[0].reason_codes
+    assert result.detections[0].model_provenance == "PRETRAINED_FALLBACK"
+    assert result.system_status.detection_details is not None
+    assert result.system_status.detection_details.mode is ModelOperationalMode.FALLBACK
     Draft202012Validator(LIVE_SCHEMA).validate(result.model_dump(mode="json"))
 
     reused = pipeline.process(
@@ -161,7 +205,41 @@ def test_end_to_end_stub_pipeline_serializes_backend_decisions() -> None:
     assert reused.evidence_frames.detection_source_frame_id == 0
     assert reused.evidence_frames.segmentation_reused is True
     assert reused.evidence_frames.detection_reused is True
+    assert reused.zones[0].alerts[0].temporal_samples == 1
     Draft202012Validator(LIVE_SCHEMA).validate(reused.model_dump(mode="json"))
+
+
+def test_pipeline_emits_explicit_event_when_primary_route_becomes_unsafe() -> None:
+    pipeline = InferencePipeline(Settings(inference_resolution=256))
+    pipeline.segmentation_adapter = RoadTransitionSegmentationAdapter()  # type: ignore[assignment]
+    pipeline.detection_adapter = StubDetectionAdapter()  # type: ignore[assignment]
+    pipeline._segmentation_status = _ready_status()
+    pipeline._detection_status = _ready_status().model_copy(
+        update={
+            "mode": ModelOperationalMode.FALLBACK,
+            "provenance_mode": "PRETRAINED_FALLBACK",
+        }
+    )
+    pipeline._initialized = True
+
+    results = [
+        pipeline.process(
+            session_id="route-transition-session",
+            frame_bgr=np.zeros((32, 32, 3), dtype=np.uint8),
+            frame_id=frame_id,
+            timestamp_ms=20_000 + frame_id * 300,
+            source_mode=SourceMode.VIDEO_FILE,
+        )
+        for frame_id in range(4)
+    ]
+    final = results[-1]
+
+    assert final is not None
+    assert final.route is not None
+    assert final.route.changed_reason_code == "ROUTE_CHANGED_PRIMARY_ACCESS_UNSAFE"
+    assert final.route.previous_edge_ids
+    assert any(event.code == "ROUTE_CHANGED_PRIMARY_ACCESS_UNSAFE" for event in final.events)
+    assert any(road.state.value == "BLOCKED" and not road.enabled for road in final.roads)
 
 
 class SocketStubPipeline:
@@ -215,21 +293,15 @@ def test_websocket_acknowledgement_precedes_ordered_intelligence_update() -> Non
             socket.send_bytes(payload)
             acknowledgement = socket.receive_json()
             intelligence = socket.receive_json()
-        report_response = client.get(
-            f"/api/ingest/sessions/{session['session_id']}/report"
-        )
+        report_response = client.get(f"/api/ingest/sessions/{session['session_id']}/report")
 
     assert acknowledgement["type"] == "frame_result"
     assert acknowledgement["accepted"] is True
     assert intelligence["type"] == "frame_intelligence"
     assert intelligence["frame_id"] == 1
     assert intelligence["sequence"] == 0
-    registry = Registry().with_resource(
-        LIVE_SCHEMA["$id"], Resource.from_contents(LIVE_SCHEMA)
-    )
-    Draft202012Validator(
-        FRAME_INTELLIGENCE_SCHEMA, registry=registry
-    ).validate(intelligence)
+    registry = Registry().with_resource(LIVE_SCHEMA["$id"], Resource.from_contents(LIVE_SCHEMA))
+    Draft202012Validator(FRAME_INTELLIGENCE_SCHEMA, registry=registry).validate(intelligence)
     assert report_response.status_code == 200
     report = report_response.json()
     assert report["generated_from_frame_id"] == 0

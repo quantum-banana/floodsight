@@ -49,6 +49,24 @@ const makeZone = (
   ],
   updated_at_ms: 1_725_000_005_000,
   data_origin: origin,
+  alerts: zoneId === "ZONE-2" ? [
+    {
+      code: "POTENTIAL_STRANDED_PERSON",
+      title: "Potential stranded person",
+      person_evidence: "HIGH",
+      flood_exposure: "HIGH",
+      primary_access: "ISOLATED",
+      confidence: 0.93,
+      temporal_samples: 3,
+      reason_codes: [
+        "POTENTIAL_STRANDED_PERSON",
+        "PERSON_EVIDENCE",
+        "PERSON_IN_HIGH_FLOOD_ZONE",
+        "PRIMARY_ACCESS_BLOCKED",
+      ],
+      data_origin: origin,
+    },
+  ] : [],
 });
 
 const zone1 = makeZone("ZONE-1", "Zone 1", 3, 54, "MODERATE", 0.08, 0.24);
@@ -250,7 +268,9 @@ export const liveSnapshot: LiveResult = {
     ...detection,
     data_origin: "REAL_ML_OUTPUT",
     source_class: detection.category === "PERSON" ? "person" : "car",
+    source_class_id: detection.category === "PERSON" ? 0 : 2,
     model_id: "yolo11-pretrained-fallback",
+    model_provenance: "PRETRAINED_FALLBACK",
   })),
   segmentation: {
     status: "ready",
@@ -270,6 +290,10 @@ export const liveSnapshot: LiveResult = {
     pool_coverage_percent: 0,
     temporal_samples: 3,
     stale: false,
+    alerts: zone.alerts?.map((alert) => ({
+      ...alert,
+      data_origin: "DERIVED_ANALYTIC",
+    })),
   })),
   events: commandSnapshot.events.map((event) => ({ ...event, data_origin: "DERIVED_ANALYTIC" })),
   route: commandSnapshot.route && { ...commandSnapshot.route, data_origin: "DERIVED_ANALYTIC", edge_ids: ["E-B2-B3"], route_cost: 2.4 },

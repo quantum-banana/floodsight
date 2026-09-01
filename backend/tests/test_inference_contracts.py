@@ -16,7 +16,7 @@ from app.inference.segformer import (
     SegFormerAdapter,
     SegmentationPrediction,
 )
-from app.inference.yolo import RawDetection, YoloAdapter
+from app.inference.yolo import COCO_TO_FLOODSIGHT, RawDetection, YoloAdapter
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SEGMENTATION_TAXONOMY = PROJECT_ROOT / "shared/taxonomy/segmentation-taxonomy-v2.yaml"
@@ -97,9 +97,7 @@ def test_segmentation_contract_resizes_and_preserves_pool(tmp_path: Path) -> Non
         runtime=StubSegmentationRuntime(),
     )
     adapter.load()
-    result = adapter.infer(
-        np.zeros((20, 40, 3), dtype=np.uint8), frame_id=3, timestamp_ms=100
-    )
+    result = adapter.infer(np.zeros((20, 40, 3), dtype=np.uint8), frame_id=3, timestamp_ms=100)
 
     decoded = decode_mask(result.mask)
     assert decoded.shape == (20, 40)
@@ -124,15 +122,28 @@ def test_detector_contract_keeps_source_label_and_marks_pretrained_fallback(
     )
     adapter = YoloAdapter(model, runtime=StubDetectionRuntime())
     adapter.load()
-    result = adapter.infer(
-        np.zeros((20, 40, 3), dtype=np.uint8), frame_id=4, timestamp_ms=200
-    )
+    result = adapter.infer(np.zeros((20, 40, 3), dtype=np.uint8), frame_id=4, timestamp_ms=200)
 
     assert result.provenance_mode.value == "PRETRAINED_FALLBACK"
     assert len(result.detections) == 1
     assert result.detections[0].source_class == "person"
+    assert result.detections[0].source_class_id == 0
     assert result.detections[0].application_class == "person"
     assert result.detections[0].bbox.x == 0.1
+    assert result.model.checkpoint_sha256 is not None
+
+
+def test_coco_fallback_mapping_is_explicit_and_does_not_invent_visdrone_labels() -> None:
+    assert COCO_TO_FLOODSIGHT == {
+        "person": "person",
+        "car": "car",
+        "truck": "truck",
+        "bus": "bus",
+        "bicycle": "bicycle",
+        "motorcycle": "motorcycle",
+    }
+    assert "van" not in COCO_TO_FLOODSIGHT
+    assert "tricycle" not in COCO_TO_FLOODSIGHT
 
 
 def test_mask_rle_round_trip_and_missing_checkpoint_behavior(tmp_path: Path) -> None:

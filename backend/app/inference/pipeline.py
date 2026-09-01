@@ -29,7 +29,7 @@ from app.inference.yolo import YoloAdapter
 from app.intelligence.contracts import GridCellEvidence
 from app.intelligence.priority import PriorityEngine
 from app.intelligence.routing import AccessibilityEngine, RoutingEngine
-from app.intelligence.temporal import TemporalZoneTracker
+from app.intelligence.temporal import TemporalRoadTracker, TemporalZoneTracker
 from app.intelligence.zones import VEHICLE_CLASSES, RescueZoneEngine
 from app.schemas.live_result import (
     ApiState,
@@ -45,6 +45,8 @@ from app.schemas.live_result import (
     LiveResult,
     Metric,
     MetricUnit,
+    Road,
+    Route,
     SceneSummary,
     Segmentation,
     SegmentationClass,
@@ -56,6 +58,7 @@ from app.schemas.live_result import (
     Statistics,
     StreamState,
     SystemStatus,
+    Zone,
 )
 from app.schemas.model_status import (
     InferenceState,
@@ -69,6 +72,7 @@ from app.schemas.model_status import (
 @dataclass(slots=True)
 class _SessionState:
     tracker: TemporalZoneTracker
+    road_tracker: TemporalRoadTracker
     router: RoutingEngine = field(default_factory=RoutingEngine)
     last_segmentation: SegmentationResult | None = None
     last_detection: DetectionResult | None = None
@@ -234,7 +238,8 @@ class InferencePipeline:
                     window_ms=self.settings.temporal_window_ms,
                     track_ttl_ms=self.settings.temporal_track_ttl_ms,
                     urgent_person_confidence=self.settings.urgent_person_confidence,
-                )
+                ),
+                road_tracker=TemporalRoadTracker(window_ms=self.settings.temporal_window_ms),
             ),
         )
         with self._lock:
@@ -249,7 +254,17 @@ class InferencePipeline:
             segmentation=segmentation,
             detection=detection,
         )
-        cells, candidates = self.zone_engine.build(scene)
+        raw_cells = self.zone_engine.cells(scene)
+        cells = state.road_tracker.update(
+            raw_cells,
+            timestamp_ms,
+            fresh_observation=(segmentation is not None and not segmentation.reused_from_previous),
+        )
+        candidates = self.zone_engine.candidates(
+            cells,
+            timestamp_ms,
+            person_observation_fresh=(detection is not None and not detection.reused_from_previous),
+        )
         operational = state.tracker.update(candidates, timestamp_ms)
         zones = self.priority_engine.prioritize(operational)
         graph = self.accessibility_engine.build(cells)
@@ -306,9 +321,7 @@ class InferencePipeline:
                     segmentation.source_frame_id if segmentation else None
                 ),
                 detection_source_frame_id=detection.source_frame_id if detection else None,
-                segmentation_reused=(
-                    segmentation.reused_from_previous if segmentation else False
-                ),
+                segmentation_reused=(segmentation.reused_from_previous if segmentation else False),
                 detection_reused=detection.reused_from_previous if detection else False,
             ),
         )
@@ -410,9 +423,9 @@ class InferencePipeline:
     def _events(
         self,
         state: _SessionState,
-        zones: list[object],
-        roads: list[object],
-        route: object | None,
+        zones: list[Zone],
+        roads: list[Road],
+        route: Route | None,
         timestamp_ms: int,
         origin: DataOrigin,
     ) -> list[IncidentEvent]:
@@ -436,6 +449,29 @@ class InferencePipeline:
                     "New person evidence escalated without temporal delay.",
                 )
             )
+        previous_alerts = (
+            {
+                zone.zone_id
+                for zone in previous.zones
+                if any(alert.code == "POTENTIAL_STRANDED_PERSON" for alert in zone.alerts)
+            }
+            if previous
+            else set()
+        )
+        current_alerts = {
+            zone.zone_id
+            for zone in zones
+            if any(alert.code == "POTENTIAL_STRANDED_PERSON" for alert in zone.alerts)
+        }
+        for zone_id in sorted(current_alerts - previous_alerts):
+            messages.append(
+                (
+                    EventSeverity.CRITICAL,
+                    EventCategory.DETECTION,
+                    f"POTENTIAL_STRANDED_PERSON raised in {zone_id}; trained-personnel "
+                    "review is required.",
+                )
+            )
         previous_blocked = (
             {road.road_id for road in previous.roads if not road.enabled} if previous else set()
         )
@@ -455,6 +491,14 @@ class InferencePipeline:
                     category=category,
                     message=message,
                     data_origin=origin,
+                    code=(
+                        route.changed_reason_code
+                        if category is EventCategory.ROUTE and route is not None
+                        else "POTENTIAL_STRANDED_PERSON"
+                        if category is EventCategory.DETECTION
+                        and message.startswith("POTENTIAL_STRANDED_PERSON")
+                        else None
+                    ),
                 )
             )
         state.events = state.events[-20:]
@@ -594,6 +638,7 @@ def _live_detections(result: DetectionResult | None) -> list[Detection]:
             source_class=item.source_class,
             source_class_id=item.source_class_id,
             model_id=result.model.model_id,
+            model_provenance=result.provenance_mode.value,
         )
         for item in result.detections
     ]

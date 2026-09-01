@@ -2,10 +2,10 @@ from collections import deque
 
 import numpy as np
 
-from app.inference.contracts import FusedScene, decode_mask
-from app.inference.coordinates import bbox_center, grid_cell_for_point, grid_cell_polygon
+from app.inference.contracts import FusedScene, NormalizedDetection, decode_mask
+from app.inference.coordinates import bbox_bottom_center, grid_cell_for_point, grid_cell_polygon
 from app.inference.taxonomy import Taxonomy
-from app.intelligence.contracts import GridCellEvidence, ZoneCandidate
+from app.intelligence.contracts import GridCellEvidence, PersonSpatialEvidence, ZoneCandidate
 from app.schemas.live_result import AccessStatus, Point, RoadState
 
 DAMAGE_CLASSES = {
@@ -38,7 +38,15 @@ class RescueZoneEngine:
             f"{chr(ord('A') + row)}{column + 1}": [] for row in range(4) for column in range(4)
         }
         for detection in scene.detections:
-            detections[grid_cell_for_point(bbox_center(detection.bbox))].append(detection)
+            anchor = (
+                bbox_bottom_center(detection.bbox)
+                if detection.application_class == "person"
+                else Point(
+                    x=detection.bbox.x + detection.bbox.width / 2,
+                    y=detection.bbox.y + detection.bbox.height / 2,
+                )
+            )
+            detections[grid_cell_for_point(anchor)].append(detection)
 
         output: list[GridCellEvidence] = []
         for row in range(4):
@@ -67,11 +75,19 @@ class RescueZoneEngine:
                 non_flooded = _coverage(region, total, self.taxonomy, {"road_non_flooded"})
                 road_state, access = _road_state(clear, flooded, blocked, non_flooded)
                 cell_detections = detections[cell_id]
-                people = [
-                    item.confidence
+                person_evidence = [
+                    _person_spatial_evidence(
+                        item,
+                        class_map=class_map,
+                        width=width,
+                        height=height,
+                        taxonomy=self.taxonomy,
+                        flood_class_ids=set(scene.flood_class_ids),
+                    )
                     for item in cell_detections
                     if item.application_class == "person"
                 ]
+                people = [item.confidence for item in person_evidence]
                 vehicles = sum(
                     item.application_class in VEHICLE_CLASSES for item in cell_detections
                 )
@@ -109,6 +125,7 @@ class RescueZoneEngine:
                         flood_coverage_percent=round(flood, 4),
                         pool_coverage_percent=round(pool, 4),
                         person_confidences=people,
+                        person_evidence=person_evidence,
                         vehicle_count=vehicles,
                         building_damage_coverage_percent=round(damage, 4),
                         road_clear_coverage_percent=round(clear, 4),
@@ -126,6 +143,19 @@ class RescueZoneEngine:
 
     def build(self, scene: FusedScene) -> tuple[list[GridCellEvidence], list[ZoneCandidate]]:
         cells = self.cells(scene)
+        return cells, self.candidates(
+            cells,
+            scene.timestamp_ms,
+            person_observation_fresh=not scene.detection_reused,
+        )
+
+    def candidates(
+        self,
+        cells: list[GridCellEvidence],
+        timestamp_ms: int,
+        *,
+        person_observation_fresh: bool = True,
+    ) -> list[ZoneCandidate]:
         selected = {
             cell.cell_id: cell
             for cell in cells
@@ -146,8 +176,42 @@ class RescueZoneEngine:
                     if neighbor in selected and neighbor not in visited:
                         visited.add(neighbor)
                         queue.append(neighbor)
-            candidates.append(_merge_component(component, scene.timestamp_ms))
-        return cells, candidates
+            candidates.append(
+                _merge_component(
+                    component,
+                    timestamp_ms,
+                    person_observation_fresh=person_observation_fresh,
+                )
+            )
+        return candidates
+
+
+def _person_spatial_evidence(
+    detection: NormalizedDetection,
+    *,
+    class_map: object | None,
+    width: int,
+    height: int,
+    taxonomy: Taxonomy,
+    flood_class_ids: set[int],
+) -> PersonSpatialEvidence:
+    anchor = bbox_bottom_center(detection.bbox)
+    center_x = min(width - 1, max(0, int(anchor.x * width)))
+    center_y = min(height - 1, max(0, int(anchor.y * height)))
+    radius_x = max(1, round(detection.bbox.width * width * 0.75))
+    radius_y = max(1, round(detection.bbox.height * height * 0.35))
+    x1, x2 = max(0, center_x - radius_x), min(width, center_x + radius_x + 1)
+    y1, y2 = max(0, center_y - radius_y), min(height, center_y + radius_y + 1)
+    region = class_map[y1:y2, x1:x2] if class_map is not None else None
+    total = max(1, (y2 - y1) * (x2 - x1))
+    flood_names = {item.name for item in taxonomy.classes if item.class_id in flood_class_ids}
+    return PersonSpatialEvidence(
+        detection_id=detection.detection_id,
+        confidence=detection.confidence,
+        bottom_center=anchor,
+        local_flood_coverage_percent=round(_coverage(region, total, taxonomy, flood_names), 4),
+        local_damage_coverage_percent=round(_coverage(region, total, taxonomy, DAMAGE_CLASSES), 4),
+    )
 
 
 def _road_state(
@@ -191,13 +255,19 @@ def _neighbors(cell_id: str) -> list[str]:
     ]
 
 
-def _merge_component(cells: list[GridCellEvidence], timestamp_ms: int) -> ZoneCandidate:
+def _merge_component(
+    cells: list[GridCellEvidence],
+    timestamp_ms: int,
+    *,
+    person_observation_fresh: bool,
+) -> ZoneCandidate:
     ordered = sorted(cells, key=lambda item: item.cell_id)
     rows = [item.row for item in ordered]
     columns = [item.column for item in ordered]
     x1, x2 = min(columns) / 4, (max(columns) + 1) / 4
     y1, y2 = min(rows) / 4, (max(rows) + 1) / 4
     people = [confidence for cell in ordered for confidence in cell.person_confidences]
+    person_evidence = [item for cell in ordered for item in cell.person_evidence]
     state = max((cell.road_state for cell in ordered), key=_road_priority)
     access = max((cell.access_status for cell in ordered), key=_access_priority)
     sources = list(dict.fromkeys(source for cell in ordered for source in cell.sources))
@@ -207,6 +277,8 @@ def _merge_component(cells: list[GridCellEvidence], timestamp_ms: int) -> ZoneCa
         polygon=[Point(x=x1, y=y1), Point(x=x2, y=y1), Point(x=x2, y=y2), Point(x=x1, y=y2)],
         timestamp_ms=timestamp_ms,
         person_confidences=people,
+        person_evidence=person_evidence,
+        person_observation_fresh=person_observation_fresh,
         vehicle_count=sum(item.vehicle_count for item in ordered),
         flood_coverage_percent=round(
             sum(item.flood_coverage_percent for item in ordered) / len(ordered), 4

@@ -20,8 +20,10 @@ This branch integrates application-facing inference and rescue intelligence. It 
 - semantic/detection fusion with `pool` explicitly excluded from flood evidence;
 - deterministic 4×4 rescue evidence grid and four-neighbour zone merging;
 - rolling temporal smoothing, stable zone IDs, TTL expiry, and immediate escalation for strong person evidence;
+- person bottom-centre/local semantic fusion and explicit `POTENTIAL_STRANDED_PERSON` alerts with evidence levels, temporal samples, and review-oriented reason codes;
 - explainable urgency scoring with confidence reported separately;
-- relative accessibility graph, blocked-edge exclusion, uncertainty penalties, primary/alternative routes, and route-change events;
+- temporally stabilized semantic road states (`CLEAR`, `FLOODED`, `BLOCKED`, or UI-labelled `UNCERTAIN`);
+- relative accessibility graph, blocked/unsafe-flooded edge exclusion, uncertainty penalties, primary/alternative routes, and coded route-change events;
 - bounded per-session latest-frame inference coordination;
 - FastAPI model status, latest intelligence, backend report, and ordered `frame_intelligence` WebSocket output;
 - command-centre rendering for live masks, detections, zones, routes, events, class legend, mask opacity, model mode/device/latency, and backend reports;
@@ -29,9 +31,9 @@ This branch integrates application-facing inference and rescue intelligence. It 
 
 ## Artifact-gated status
 
-- Segmentation integration slot: enabled, taxonomy `segmentation-taxonomy-v2`, external path `FLOODSIGHT_SEGMENTATION_CHECKPOINT`. The registry records the supplied epoch-1 mIoU reference `0.436409`; it does not claim this is a final model.
+- Segmentation integration slot: enabled, taxonomy `segmentation-taxonomy-v2`, external path `FLOODSIGHT_SEGMENTATION_CHECKPOINT`. The locally verified integration artifact is the epoch-6 production handoff (mIoU `0.583700242954744`); the artifact remains outside Git.
 - Final detection slot: present but disabled until a verified FloodSight/VisDrone checkpoint is supplied through `FLOODSIGHT_DETECTION_CHECKPOINT`.
-- Pretrained detection fallback: enabled as an explicit `PRETRAINED_FALLBACK` slot through `FLOODSIGHT_DETECTION_FALLBACK_CHECKPOINT`; it is never labelled as the final detector.
+- Pretrained detection fallback: the official Ultralytics YOLO11l COCO-pretrained asset from release `v8.4.0`, SHA-256 `9ebd0e09d59811db4b1d61e2bc6730649608b1ac47f8dd01e2da6bca7c20023f`, is pinned in the registry and supplied externally through `FLOODSIGHT_DETECTION_FALLBACK_CHECKPOINT`. It is always labelled `PRETRAINED_FALLBACK`, never final or VisDrone fine-tuned.
 - With no artifact configured, the API and UI report `MODEL_UNAVAILABLE`. No output is silently mocked.
 
 ## Operational semantics
@@ -40,6 +42,9 @@ This branch integrates application-facing inference and rescue intelligence. It 
 - Fusion, zones, temporal state, priority, accessibility, routing, and reports are `DERIVED_ANALYTIC` unless all contributing adapters are explicitly simulated.
 - `pool` remains a separate semantic class and contributes zero flood urgency.
 - `road_non_flooded` is not silently promoted to operationally `CLEAR`.
+- road transitions normally require short persistence; very strong blocked/flooded evidence may take effect immediately.
+- an unsafe edge on the previously recommended path produces `ROUTE_CHANGED_PRIMARY_ACCESS_UNSAFE`, exposes the prior edge IDs, and recomputes through the existing image-space graph.
+- `POTENTIAL_STRANDED_PERSON` is a model-driven potential-risk signal, not a definitive stranded-person claim; trained personnel must verify it.
 - semantic damage coverage is not converted into a damaged-building count.
 - routing is relative image-space decision support. Metres, travel time, GIS position, and real-world traversability are not claimed.
 - trained emergency personnel retain verification and response authority.

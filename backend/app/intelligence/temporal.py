@@ -2,7 +2,7 @@ from collections import deque
 from dataclasses import dataclass, field
 from statistics import median
 
-from app.intelligence.contracts import OperationalZone, ZoneCandidate
+from app.intelligence.contracts import GridCellEvidence, OperationalZone, ZoneCandidate
 from app.schemas.live_result import AccessStatus, RoadState
 
 
@@ -12,6 +12,13 @@ class _Track:
     history: deque[ZoneCandidate] = field(default_factory=deque)
     last_seen_ms: int = 0
     confirmed: bool = False
+
+
+@dataclass(slots=True)
+class _RoadTrack:
+    history: deque[tuple[int, RoadState]] = field(default_factory=deque)
+    stable_state: RoadState = RoadState.UNKNOWN
+    last_observation_ms: int | None = None
 
 
 class TemporalZoneTracker:
@@ -90,7 +97,7 @@ class TemporalZoneTracker:
         people = (
             len(latest.person_confidences)
             if strong_current
-            else round(median(len(item.person_confidences) for item in history))
+            else int(median(len(item.person_confidences) for item in history) + 0.5)
         )
         max_confidence = max(
             (value for item in history for value in item.person_confidences), default=0
@@ -107,6 +114,45 @@ class TemporalZoneTracker:
             timestamp_ms=timestamp_ms,
             people_count=people,
             max_person_confidence=max_confidence,
+            person_evidence_samples=sum(
+                bool(item.person_confidences) and item.person_observation_fresh for item in history
+            ),
+            person_local_flood_coverage_percent=round(
+                float(
+                    median(
+                        max(
+                            (
+                                evidence.local_flood_coverage_percent
+                                for evidence in item.person_evidence
+                            ),
+                            default=0.0,
+                        )
+                        for item in history
+                        if item.person_confidences
+                    )
+                )
+                if any(item.person_confidences for item in history)
+                else 0.0,
+                4,
+            ),
+            person_local_damage_coverage_percent=round(
+                float(
+                    median(
+                        max(
+                            (
+                                evidence.local_damage_coverage_percent
+                                for evidence in item.person_evidence
+                            ),
+                            default=0.0,
+                        )
+                        for item in history
+                        if item.person_confidences
+                    )
+                )
+                if any(item.person_confidences for item in history)
+                else 0.0,
+                4,
+            ),
             vehicle_count=round(median(item.vehicle_count for item in history)),
             flood_coverage_percent=round(
                 float(median(item.flood_coverage_percent for item in history)), 4
@@ -125,6 +171,69 @@ class TemporalZoneTracker:
             stale=stale,
             sources=latest.sources,
         )
+
+
+class TemporalRoadTracker:
+    """Apply short persistence to semantic road states before route decisions."""
+
+    def __init__(self, *, window_ms: int = 1_500) -> None:
+        self.window_ms = window_ms
+        self._tracks: dict[str, _RoadTrack] = {}
+
+    def update(
+        self,
+        cells: list[GridCellEvidence],
+        timestamp_ms: int,
+        *,
+        fresh_observation: bool = True,
+    ) -> list[GridCellEvidence]:
+        output: list[GridCellEvidence] = []
+        for cell in cells:
+            track = self._tracks.setdefault(cell.cell_id, _RoadTrack())
+            if fresh_observation:
+                track.history.append((timestamp_ms, cell.road_state))
+                track.last_observation_ms = timestamp_ms
+                while track.history and timestamp_ms - track.history[0][0] > self.window_ms:
+                    track.history.popleft()
+                track.stable_state = self._stabilize(track, cell)
+            elif (
+                track.last_observation_ms is None
+                or timestamp_ms - track.last_observation_ms > self.window_ms
+            ):
+                track.stable_state = RoadState.UNKNOWN
+            stable = track.stable_state
+            output.append(
+                cell.model_copy(
+                    update={
+                        "road_state": stable,
+                        "access_status": _access_for_road(stable),
+                    }
+                )
+            )
+        return output
+
+    @staticmethod
+    def _stabilize(track: _RoadTrack, latest: GridCellEvidence) -> RoadState:
+        current = latest.road_state
+        strong_hazard = latest.confidence >= 0.95 and (
+            (current is RoadState.BLOCKED and latest.road_blocked_coverage_percent >= 20)
+            or (current is RoadState.FLOODED and latest.road_flooded_coverage_percent >= 30)
+        )
+        if strong_hazard:
+            return current
+        recent = [state for _, state in track.history]
+        if len(recent) >= 2 and recent[-1] is recent[-2]:
+            return current
+        return track.stable_state
+
+
+def _access_for_road(state: RoadState) -> AccessStatus:
+    return {
+        RoadState.CLEAR: AccessStatus.ACCESSIBLE,
+        RoadState.FLOODED: AccessStatus.DEGRADED,
+        RoadState.BLOCKED: AccessStatus.BLOCKED,
+        RoadState.UNKNOWN: AccessStatus.UNKNOWN,
+    }[state]
 
 
 def _road_priority(state: RoadState) -> int:

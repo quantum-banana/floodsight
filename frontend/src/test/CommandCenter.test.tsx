@@ -163,6 +163,15 @@ describe("FloodSight command center", () => {
   });
 
   it("renders backend intelligence and class-aware provenance over actual media", async () => {
+    const reroutedSnapshot = {
+      ...liveSnapshot,
+      route: liveSnapshot.route && {
+        ...liveSnapshot.route,
+        changed_reason: "Primary access became unsafe; a new relative route is recommended.",
+        changed_reason_code: "ROUTE_CHANGED_PRIMARY_ACCESS_UNSAFE",
+        previous_edge_ids: ["EDGE-C1-D1"],
+      },
+    };
     vi.mocked(useFrameIngestion).mockReturnValue({
       metrics: {
         ...ingestionMetrics,
@@ -171,7 +180,7 @@ describe("FloodSight command center", () => {
         analysisStatus: "LIVE",
         modelStatus: "SEG REAL · DET FALLBACK",
       },
-      intelligence: liveSnapshot,
+      intelligence: reroutedSnapshot,
       retry: vi.fn(),
     });
     render(<CommandCenter />);
@@ -184,6 +193,8 @@ describe("FloodSight command center", () => {
     expect(screen.getByLabelText("Inference model status")).toHaveTextContent("REAL");
     expect(screen.getByLabelText("Inference model status")).toHaveTextContent("FALLBACK");
     expect(screen.getByLabelText("Evidence frame freshness")).toHaveTextContent("current inference");
+    expect(screen.getByText("Previous route no longer preferred")).toBeInTheDocument();
+    expect(screen.getByText("ROUTE_CHANGED_PRIMARY_ACCESS_UNSAFE")).toBeInTheDocument();
     expect(screen.getByText("38%")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Open incident report" }));
     expect(await screen.findByText("Backend-supplied priority explanation.")).toBeInTheDocument();
@@ -217,6 +228,8 @@ describe("FloodSight command center", () => {
     expect(drawer).toHaveTextContent("92/100");
     expect(drawer).toHaveTextContent("ISOLATED");
     expect(drawer).toHaveTextContent("Flood exposure");
+    expect(drawer).toHaveTextContent("Potential stranded person");
+    expect(drawer).toHaveTextContent("PERSON_IN_HIGH_FLOOD_ZONE");
     expect(drawer).toHaveTextContent("Supplied contribution total: 92");
   });
 

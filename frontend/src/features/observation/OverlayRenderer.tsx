@@ -15,6 +15,7 @@ interface OverlayRendererProps {
 const roadColor = (state: string) => {
   if (state === "BLOCKED") return "#fb7185";
   if (state === "FLOODED") return "#38bdf8";
+  if (state === "UNKNOWN") return "#fbbf24";
   return "#34d399";
 };
 

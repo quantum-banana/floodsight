@@ -19,7 +19,6 @@ from app.inference.taxonomy import load_taxonomy
 COCO_TO_FLOODSIGHT = {
     "person": "person",
     "car": "car",
-    "van": "van",
     "truck": "truck",
     "bus": "bus",
     "bicycle": "bicycle",
@@ -185,15 +184,16 @@ class UltralyticsRuntime:
     def predict(self, frame_bgr: NDArray[np.uint8]) -> list[RawDetection]:
         if self._model is None:
             raise RuntimeError("YOLO runtime is not loaded")
+        precision_arguments = {"quantize": "fp16"} if self._half else {}
         results = self._model.predict(
             source=frame_bgr,
             imgsz=self.inference_resolution,
             conf=self.confidence_threshold,
             iou=self.iou_threshold,
             device=self.device,
-            half=self._half,
             augment=False,
             verbose=False,
+            **precision_arguments,
         )
         if not results:
             return []
