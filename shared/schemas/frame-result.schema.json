@@ -17,7 +17,10 @@
     "byte_length",
     "decoded_frame",
     "quality",
-    "data_origin"
+    "data_origin",
+    "inference_state",
+    "segmentation_status",
+    "detection_status"
   ],
   "properties": {
     "type": { "const": "frame_result" },
@@ -35,7 +38,16 @@
     "quality": {
       "oneOf": [{ "$ref": "#/$defs/quality" }, { "type": "null" }]
     },
-    "data_origin": { "const": "DERIVED_ANALYTIC" }
+    "data_origin": { "const": "DERIVED_ANALYTIC" },
+    "inference_state": {
+      "oneOf": [{ "$ref": "#/$defs/inferenceState" }, { "type": "null" }]
+    },
+    "segmentation_status": {
+      "oneOf": [{ "$ref": "#/$defs/modelStatus" }, { "type": "null" }]
+    },
+    "detection_status": {
+      "oneOf": [{ "$ref": "#/$defs/modelStatus" }, { "type": "null" }]
+    }
   },
   "$defs": {
     "decodedFrame": {
@@ -66,6 +78,47 @@
         "sharpness_status": { "type": "string", "enum": ["NORMAL", "BLURRY"] },
         "warnings": { "type": "array", "items": { "type": "string" } },
         "data_origin": { "const": "DERIVED_ANALYTIC" }
+      }
+    },
+    "inferenceState": {
+      "type": "string",
+      "enum": [
+        "CONNECTING",
+        "LIVE",
+        "DEGRADED",
+        "MODEL_LOADING",
+        "MODEL_UNAVAILABLE",
+        "SIMULATED_FALLBACK",
+        "ERROR"
+      ]
+    },
+    "modelStatus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "model",
+        "mode",
+        "version",
+        "device",
+        "latency_ms",
+        "last_successful_inference_ms",
+        "provenance_mode",
+        "message"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["not_configured", "loading", "ready", "unavailable", "error"]
+        },
+        "model": { "type": ["string", "null"] },
+        "mode": { "type": "string", "enum": ["REAL", "FALLBACK", "SIMULATED", "UNAVAILABLE"] },
+        "version": { "type": ["string", "null"] },
+        "device": { "type": ["string", "null"] },
+        "latency_ms": { "type": ["number", "null"], "minimum": 0 },
+        "last_successful_inference_ms": { "type": ["integer", "null"], "minimum": 0 },
+        "provenance_mode": { "type": ["string", "null"] },
+        "message": { "type": ["string", "null"] }
       }
     }
   }

@@ -4,7 +4,8 @@ from typing import Literal, Self
 from pydantic import Field, model_validator
 
 from app.schemas.base import ContractModel
-from app.schemas.live_result import DataOrigin, SourceMode
+from app.schemas.live_result import DataOrigin, LiveResult, SourceMode
+from app.schemas.model_status import InferenceState, ModelStatus
 
 
 class MediaOrigin(StrEnum):
@@ -26,6 +27,9 @@ class SessionCounters(ContractModel):
     frames_out_of_order: int = Field(default=0, ge=0)
     protocol_errors: int = Field(default=0, ge=0)
     bytes_received: int = Field(default=0, ge=0)
+    inference_frames_submitted: int = Field(default=0, ge=0)
+    inference_frames_dropped: int = Field(default=0, ge=0)
+    intelligence_updates_sent: int = Field(default=0, ge=0)
 
 
 class SessionLimits(ContractModel):
@@ -45,8 +49,7 @@ class IngestionSessionCreate(ContractModel):
             self.source_mode is SourceMode.VIDEO_FILE
             and self.media_origin is MediaOrigin.USER_VIDEO_FILE
         ) or (
-            self.source_mode is SourceMode.WEBCAM
-            and self.media_origin is MediaOrigin.USER_WEBCAM
+            self.source_mode is SourceMode.WEBCAM and self.media_origin is MediaOrigin.USER_WEBCAM
         )
         if not valid_pair:
             raise ValueError("media_origin must match source_mode")
@@ -107,3 +110,14 @@ class FrameResult(ContractModel):
     decoded_frame: DecodedFrame | None
     quality: FrameQuality | None
     data_origin: Literal[DataOrigin.DERIVED_ANALYTIC] = DataOrigin.DERIVED_ANALYTIC
+    inference_state: InferenceState | None = None
+    segmentation_status: ModelStatus | None = None
+    detection_status: ModelStatus | None = None
+
+
+class FrameIntelligence(ContractModel):
+    type: Literal["frame_intelligence"] = "frame_intelligence"
+    session_id: str = Field(min_length=1)
+    frame_id: int = Field(ge=0)
+    sequence: int = Field(ge=0)
+    result: LiveResult

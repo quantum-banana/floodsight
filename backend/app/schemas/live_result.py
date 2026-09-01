@@ -1,10 +1,10 @@
 from enum import StrEnum
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import Field
 
 from app.schemas.base import ContractModel
-from app.schemas.model_status import ModelState
+from app.schemas.model_status import InferenceState, ModelState, ModelStatus
 
 UnitInterval = Annotated[float, Field(ge=0, le=1)]
 PositiveUnitInterval = Annotated[float, Field(gt=0, le=1)]
@@ -18,6 +18,13 @@ class DataOrigin(StrEnum):
     GIS_EXTERNAL_DATA = "GIS_EXTERNAL_DATA"
     DEMO_SIMULATED = "DEMO_SIMULATED"
     HUMAN_VERIFIED = "HUMAN_VERIFIED"
+
+
+class FeatureProvenance(StrEnum):
+    SEGMENTATION = "SEGMENTATION"
+    DETECTION = "DETECTION"
+    DERIVED = "DERIVED"
+    SIMULATED = "SIMULATED"
 
 
 class SourceMode(StrEnum):
@@ -50,6 +57,9 @@ class SystemStatus(ContractModel):
     api: ApiState
     segmentation_model: ModelState
     detection_model: ModelState
+    inference_state: InferenceState | None = None
+    segmentation_details: ModelStatus | None = None
+    detection_details: ModelStatus | None = None
 
 
 class IncidentMetadata(ContractModel):
@@ -93,6 +103,11 @@ class BoundingBox(ContractModel):
     height: PositiveUnitInterval
 
 
+class SourceDimensions(ContractModel):
+    width: int = Field(gt=0, le=8192)
+    height: int = Field(gt=0, le=8192)
+
+
 class DetectionCategory(StrEnum):
     PERSON = "PERSON"
     VEHICLE = "VEHICLE"
@@ -106,6 +121,9 @@ class Detection(ContractModel):
     confidence: UnitInterval
     bbox: BoundingBox
     data_origin: DataOrigin
+    source_class: str | None = None
+    source_class_id: int | None = Field(default=None, ge=0)
+    model_id: str | None = None
 
 
 class SegmentationState(StrEnum):
@@ -117,10 +135,19 @@ class SegmentationState(StrEnum):
 
 
 class SegmentationClass(ContractModel):
+    class_id: int | None = Field(default=None, ge=0, le=255)
     label: str = Field(min_length=1)
     coverage_percent: Percentage
     confidence: UnitInterval
     data_origin: DataOrigin
+    color: list[int] | None = Field(default=None, min_length=3, max_length=3)
+
+
+class SegmentationMask(ContractModel):
+    encoding: Literal["PNG_BASE64"] = "PNG_BASE64"
+    width: int = Field(gt=0, le=8192)
+    height: int = Field(gt=0, le=8192)
+    data: str = Field(min_length=1)
 
 
 class OverlayKind(StrEnum):
@@ -141,6 +168,7 @@ class Segmentation(ContractModel):
     status: SegmentationState
     classes: list[SegmentationClass]
     regions: list[OverlayRegion] = Field(default_factory=list)
+    mask: SegmentationMask | None = None
 
 
 class RoadState(StrEnum):
@@ -166,6 +194,9 @@ class Road(ContractModel):
     geometry: list[Point] = Field(min_length=2)
     confidence: UnitInterval | None
     data_origin: DataOrigin
+    travel_cost: NonNegativeNumber | None = None
+    enabled: bool | None = None
+    uncertainty: UnitInterval | None = None
 
 
 class Severity(StrEnum):
@@ -201,6 +232,11 @@ class Zone(ContractModel):
     reasons: list[ZoneReason]
     updated_at_ms: int = Field(ge=0)
     data_origin: DataOrigin
+    grid_cells: list[str] = Field(default_factory=list)
+    building_damage_coverage_percent: Percentage = 0
+    pool_coverage_percent: Percentage = 0
+    temporal_samples: int = Field(default=1, ge=1)
+    stale: bool = False
 
 
 class EventSeverity(StrEnum):
@@ -241,6 +277,27 @@ class Route(ContractModel):
     distance_m: NonNegativeNumber | None
     access_summary: str = Field(min_length=1)
     data_origin: DataOrigin
+    edge_ids: list[str] = Field(default_factory=list)
+    route_cost: NonNegativeNumber | None = None
+    changed_reason: str | None = None
+
+
+class SceneSummary(ContractModel):
+    water_flood_coverage_percent: Percentage
+    pool_coverage_percent: Percentage
+    road_clear_coverage_percent: Percentage
+    road_flooded_coverage_percent: Percentage
+    road_blocked_coverage_percent: Percentage
+    building_damage_coverage_percent: Percentage
+    provenance: list[FeatureProvenance]
+    data_origin: DataOrigin
+
+
+class EvidenceFrames(ContractModel):
+    segmentation_source_frame_id: int | None = Field(default=None, ge=0)
+    detection_source_frame_id: int | None = Field(default=None, ge=0)
+    segmentation_reused: bool = False
+    detection_reused: bool = False
 
 
 class LiveResult(ContractModel):
@@ -264,3 +321,7 @@ class LiveResult(ContractModel):
     zones: list[Zone]
     events: list[IncidentEvent]
     route: Route | None
+    route_alternatives: list[Route] = Field(default_factory=list)
+    scene_summary: SceneSummary | None = None
+    source_dimensions: SourceDimensions | None = None
+    evidence_frames: EvidenceFrames | None = None

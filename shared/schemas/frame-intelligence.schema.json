@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://floodsight.local/schemas/frame-intelligence.schema.json",
+  "title": "FloodSight frame intelligence update",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["type", "session_id", "frame_id", "sequence", "result"],
+  "properties": {
+    "type": { "const": "frame_intelligence" },
+    "session_id": { "type": "string", "minLength": 1 },
+    "frame_id": { "type": "integer", "minimum": 0 },
+    "sequence": { "type": "integer", "minimum": 0 },
+    "result": { "$ref": "live-result.schema.json" }
+  }
+}

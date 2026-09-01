@@ -29,6 +29,21 @@ class Settings(BaseSettings):
     ingest_dark_luminance_threshold: float = Field(default=35.0, ge=0, le=255)
     ingest_bright_luminance_threshold: float = Field(default=220.0, ge=0, le=255)
     ingest_blur_variance_threshold: float = Field(default=60.0, ge=0)
+    model_registry_path: str = "configs/models/registry.json"
+    segmentation_checkpoint: str | None = None
+    detection_checkpoint: str | None = None
+    detection_fallback_checkpoint: str | None = None
+    inference_device: str = "auto"
+    inference_precision: str = "auto"
+    inference_resolution: int = Field(default=768, ge=256, le=2048)
+    inference_frame_stride: int = Field(default=1, ge=1, le=120)
+    segmentation_cadence: int = Field(default=1, ge=1, le=120)
+    detection_cadence: int = Field(default=1, ge=1, le=120)
+    detection_confidence_threshold: float = Field(default=0.25, ge=0.01, le=1)
+    detection_iou_threshold: float = Field(default=0.7, ge=0.1, le=1)
+    temporal_window_ms: int = Field(default=1_500, ge=500, le=5_000)
+    temporal_track_ttl_ms: int = Field(default=2_000, ge=500, le=10_000)
+    urgent_person_confidence: float = Field(default=0.85, ge=0.5, le=1)
     cors_origins: list[str] = [
         "http://127.0.0.1:5173",
         "http://localhost:5173",
@@ -57,6 +72,14 @@ class Settings(BaseSettings):
         if value <= dark:
             raise ValueError("bright luminance threshold must exceed the dark threshold")
         return value
+
+    @field_validator("inference_precision")
+    @classmethod
+    def validate_inference_precision(cls, value: str) -> str:
+        normalized = value.lower()
+        if normalized not in {"auto", "float32", "float16", "bfloat16"}:
+            raise ValueError("inference precision must be auto, float32, float16, or bfloat16")
+        return normalized
 
 
 @lru_cache

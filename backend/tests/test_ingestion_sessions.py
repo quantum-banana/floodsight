@@ -93,13 +93,18 @@ async def test_unknown_session_uses_structured_error(client: AsyncClient) -> Non
 
 def test_session_manager_is_bounded_and_expiring() -> None:
     now = 100.0
+    removed: list[str] = []
     settings = Settings(ingest_max_sessions=1, ingest_session_ttl_seconds=30)
-    manager = IngestionSessionManager(settings=settings, clock=lambda: now)
+    manager = IngestionSessionManager(
+        settings=settings,
+        clock=lambda: now,
+        on_remove=removed.append,
+    )
     request = IngestionSessionCreate(
         source_mode=SourceMode.WEBCAM,
         media_origin=MediaOrigin.USER_WEBCAM,
     )
-    manager.create(request)
+    first = manager.create(request)
 
     with pytest.raises(AppError, match="session limit"):
         manager.create(request)
@@ -107,3 +112,6 @@ def test_session_manager_is_bounded_and_expiring() -> None:
     now = 131.0
     replacement = manager.create(request)
     assert replacement.source_mode is SourceMode.WEBCAM
+    assert removed == [first.session_id]
+    manager.delete(replacement.session_id)
+    assert removed == [first.session_id, replacement.session_id]

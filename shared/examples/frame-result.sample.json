@@ -21,5 +21,8 @@
     "warnings": [],
     "data_origin": "DERIVED_ANALYTIC"
   },
-  "data_origin": "DERIVED_ANALYTIC"
+  "data_origin": "DERIVED_ANALYTIC",
+  "inference_state": "MODEL_UNAVAILABLE",
+  "segmentation_status": null,
+  "detection_status": null
 }

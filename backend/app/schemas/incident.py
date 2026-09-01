@@ -1,9 +1,12 @@
+from pydantic import Field
+
 from app.schemas.base import ContractModel
 from app.schemas.live_result import (
     CoordinateSpace,
     DataOrigin,
     IncidentMetadata,
     LiveResult,
+    Route,
     Severity,
     SourceMode,
     Statistics,
@@ -41,9 +44,14 @@ class IncidentReport(ContractModel):
     severity: Severity
     statistics: Statistics
     critical_zone_count: int
-    highest_priority_zone_id: str
-    highest_priority_zone_name: str
+    highest_priority_zone_id: str | None
+    highest_priority_zone_name: str | None
     explanation: str
     access_summary: str
     responsible_ai_statement: str
     data_origin: DataOrigin
+    generated_from_frame_id: int | None = None
+    priority_order: list[str] = Field(default_factory=list)
+    reason_codes: list[str] = Field(default_factory=list)
+    route: Route | None = None
+    model_provenance: dict[str, str] = Field(default_factory=dict)

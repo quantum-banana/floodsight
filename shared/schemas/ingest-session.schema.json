@@ -56,7 +56,10 @@
         "frames_rejected",
         "frames_out_of_order",
         "protocol_errors",
-        "bytes_received"
+        "bytes_received",
+        "inference_frames_submitted",
+        "inference_frames_dropped",
+        "intelligence_updates_sent"
       ],
       "properties": {
         "frames_received": { "type": "integer", "minimum": 0 },
@@ -64,7 +67,10 @@
         "frames_rejected": { "type": "integer", "minimum": 0 },
         "frames_out_of_order": { "type": "integer", "minimum": 0 },
         "protocol_errors": { "type": "integer", "minimum": 0 },
-        "bytes_received": { "type": "integer", "minimum": 0 }
+        "bytes_received": { "type": "integer", "minimum": 0 },
+        "inference_frames_submitted": { "type": "integer", "minimum": 0 },
+        "inference_frames_dropped": { "type": "integer", "minimum": 0 },
+        "intelligence_updates_sent": { "type": "integer", "minimum": 0 }
       }
     },
     "limits": {

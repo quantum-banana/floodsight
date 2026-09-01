@@ -47,9 +47,44 @@
     "roads": { "type": "array", "items": { "$ref": "#/$defs/road" } },
     "zones": { "type": "array", "items": { "$ref": "#/$defs/zone" } },
     "events": { "type": "array", "items": { "$ref": "#/$defs/event" } },
-    "route": { "oneOf": [{ "$ref": "#/$defs/route" }, { "type": "null" }] }
+    "route": { "oneOf": [{ "$ref": "#/$defs/route" }, { "type": "null" }] },
+    "route_alternatives": { "type": "array", "items": { "$ref": "#/$defs/route" } },
+    "scene_summary": {
+      "oneOf": [{ "$ref": "#/$defs/sceneSummary" }, { "type": "null" }]
+    },
+    "source_dimensions": {
+      "oneOf": [{ "$ref": "#/$defs/sourceDimensions" }, { "type": "null" }]
+    },
+    "evidence_frames": {
+      "oneOf": [{ "$ref": "#/$defs/evidenceFrames" }, { "type": "null" }]
+    }
   },
   "$defs": {
+    "sourceDimensions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width", "height"],
+      "properties": {
+        "width": { "type": "integer", "minimum": 1, "maximum": 8192 },
+        "height": { "type": "integer", "minimum": 1, "maximum": 8192 }
+      }
+    },
+    "evidenceFrames": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "segmentation_source_frame_id",
+        "detection_source_frame_id",
+        "segmentation_reused",
+        "detection_reused"
+      ],
+      "properties": {
+        "segmentation_source_frame_id": { "type": ["integer", "null"], "minimum": 0 },
+        "detection_source_frame_id": { "type": ["integer", "null"], "minimum": 0 },
+        "segmentation_reused": { "type": "boolean" },
+        "detection_reused": { "type": "boolean" }
+      }
+    },
     "dataOrigin": {
       "type": "string",
       "enum": [
@@ -59,6 +94,10 @@
         "DEMO_SIMULATED",
         "HUMAN_VERIFIED"
       ]
+    },
+    "featureProvenance": {
+      "type": "string",
+      "enum": ["SEGMENTATION", "DETECTION", "DERIVED", "SIMULATED"]
     },
     "sourceMode": {
       "type": "string",
@@ -78,7 +117,39 @@
     },
     "modelState": {
       "type": "string",
-      "enum": ["not_configured", "loading", "ready", "error"]
+      "enum": ["not_configured", "loading", "ready", "unavailable", "error"]
+    },
+    "inferenceState": {
+      "type": "string",
+      "enum": [
+        "CONNECTING",
+        "LIVE",
+        "DEGRADED",
+        "MODEL_LOADING",
+        "MODEL_UNAVAILABLE",
+        "SIMULATED_FALLBACK",
+        "ERROR"
+      ]
+    },
+    "modelOperationalMode": {
+      "type": "string",
+      "enum": ["REAL", "FALLBACK", "SIMULATED", "UNAVAILABLE"]
+    },
+    "modelStatus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "model", "mode"],
+      "properties": {
+        "status": { "$ref": "#/$defs/modelState" },
+        "model": { "type": ["string", "null"] },
+        "mode": { "$ref": "#/$defs/modelOperationalMode" },
+        "version": { "type": ["string", "null"] },
+        "device": { "type": ["string", "null"] },
+        "latency_ms": { "type": ["number", "null"], "minimum": 0 },
+        "last_successful_inference_ms": { "type": ["integer", "null"], "minimum": 0 },
+        "provenance_mode": { "type": ["string", "null"] },
+        "message": { "type": ["string", "null"] }
+      }
     },
     "systemStatus": {
       "type": "object",
@@ -87,7 +158,16 @@
       "properties": {
         "api": { "type": "string", "enum": ["operational", "degraded", "offline"] },
         "segmentation_model": { "$ref": "#/$defs/modelState" },
-        "detection_model": { "$ref": "#/$defs/modelState" }
+        "detection_model": { "$ref": "#/$defs/modelState" },
+        "inference_state": {
+          "oneOf": [{ "$ref": "#/$defs/inferenceState" }, { "type": "null" }]
+        },
+        "segmentation_details": {
+          "oneOf": [{ "$ref": "#/$defs/modelStatus" }, { "type": "null" }]
+        },
+        "detection_details": {
+          "oneOf": [{ "$ref": "#/$defs/modelStatus" }, { "type": "null" }]
+        }
       }
     },
     "incidentMetadata": {
@@ -119,6 +199,17 @@
         "unit": { "type": "string", "enum": ["count", "percent"] },
         "confidence": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
         "data_origin": { "$ref": "#/$defs/dataOrigin" }
+      }
+    },
+    "segmentationMask": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["encoding", "width", "height", "data"],
+      "properties": {
+        "encoding": { "const": "PNG_BASE64" },
+        "width": { "type": "integer", "minimum": 1, "maximum": 8192 },
+        "height": { "type": "integer", "minimum": 1, "maximum": 8192 },
+        "data": { "type": "string", "minLength": 1 }
       }
     },
     "statistics": {
@@ -169,7 +260,10 @@
         "label": { "type": "string", "minLength": 1 },
         "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
         "bbox": { "$ref": "#/$defs/boundingBox" },
-        "data_origin": { "$ref": "#/$defs/dataOrigin" }
+        "data_origin": { "$ref": "#/$defs/dataOrigin" },
+        "source_class": { "type": ["string", "null"] },
+        "source_class_id": { "type": ["integer", "null"], "minimum": 0 },
+        "model_id": { "type": ["string", "null"] }
       }
     },
     "segmentationClass": {
@@ -180,7 +274,19 @@
         "label": { "type": "string", "minLength": 1 },
         "coverage_percent": { "type": "number", "minimum": 0, "maximum": 100 },
         "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
-        "data_origin": { "$ref": "#/$defs/dataOrigin" }
+        "data_origin": { "$ref": "#/$defs/dataOrigin" },
+        "class_id": { "type": ["integer", "null"], "minimum": 0, "maximum": 255 },
+        "color": {
+          "oneOf": [
+            {
+              "type": "array",
+              "minItems": 3,
+              "maxItems": 3,
+              "items": { "type": "integer", "minimum": 0, "maximum": 255 }
+            },
+            { "type": "null" }
+          ]
+        }
       }
     },
     "overlayRegion": {
@@ -210,7 +316,10 @@
           "enum": ["not_configured", "simulated", "processing", "ready", "error"]
         },
         "classes": { "type": "array", "items": { "$ref": "#/$defs/segmentationClass" } },
-        "regions": { "type": "array", "items": { "$ref": "#/$defs/overlayRegion" } }
+        "regions": { "type": "array", "items": { "$ref": "#/$defs/overlayRegion" } },
+        "mask": {
+          "oneOf": [{ "$ref": "#/$defs/segmentationMask" }, { "type": "null" }]
+        }
       }
     },
     "road": {
@@ -239,7 +348,10 @@
           "items": { "$ref": "#/$defs/point" }
         },
         "confidence": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
-        "data_origin": { "$ref": "#/$defs/dataOrigin" }
+        "data_origin": { "$ref": "#/$defs/dataOrigin" },
+        "travel_cost": { "type": ["number", "null"], "minimum": 0 },
+        "enabled": { "type": ["boolean", "null"] },
+        "uncertainty": { "type": ["number", "null"], "minimum": 0, "maximum": 1 }
       }
     },
     "zoneReason": {
@@ -303,6 +415,42 @@
         "primary_reason": { "type": "string", "minLength": 1 },
         "reasons": { "type": "array", "items": { "$ref": "#/$defs/zoneReason" } },
         "updated_at_ms": { "type": "integer", "minimum": 0 },
+        "data_origin": { "$ref": "#/$defs/dataOrigin" },
+        "grid_cells": { "type": "array", "items": { "type": "string" } },
+        "building_damage_coverage_percent": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "pool_coverage_percent": { "type": "number", "minimum": 0, "maximum": 100 },
+        "temporal_samples": { "type": "integer", "minimum": 1 },
+        "stale": { "type": "boolean" }
+      }
+    },
+    "sceneSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "water_flood_coverage_percent",
+        "pool_coverage_percent",
+        "road_clear_coverage_percent",
+        "road_flooded_coverage_percent",
+        "road_blocked_coverage_percent",
+        "building_damage_coverage_percent",
+        "provenance",
+        "data_origin"
+      ],
+      "properties": {
+        "water_flood_coverage_percent": { "type": "number", "minimum": 0, "maximum": 100 },
+        "pool_coverage_percent": { "type": "number", "minimum": 0, "maximum": 100 },
+        "road_clear_coverage_percent": { "type": "number", "minimum": 0, "maximum": 100 },
+        "road_flooded_coverage_percent": { "type": "number", "minimum": 0, "maximum": 100 },
+        "road_blocked_coverage_percent": { "type": "number", "minimum": 0, "maximum": 100 },
+        "building_damage_coverage_percent": { "type": "number", "minimum": 0, "maximum": 100 },
+        "provenance": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/featureProvenance" }
+        },
         "data_origin": { "$ref": "#/$defs/dataOrigin" }
       }
     },
@@ -343,9 +491,11 @@
         "waypoints": { "type": "array", "items": { "$ref": "#/$defs/point" } },
         "distance_m": { "type": ["number", "null"], "minimum": 0 },
         "access_summary": { "type": "string", "minLength": 1 },
-        "data_origin": { "$ref": "#/$defs/dataOrigin" }
+        "data_origin": { "$ref": "#/$defs/dataOrigin" },
+        "edge_ids": { "type": "array", "items": { "type": "string" } },
+        "route_cost": { "type": ["number", "null"], "minimum": 0 },
+        "changed_reason": { "type": ["string", "null"] }
       }
     }
   }
 }
-

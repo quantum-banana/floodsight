@@ -12,7 +12,10 @@
     "frames_rejected": 0,
     "frames_out_of_order": 0,
     "protocol_errors": 0,
-    "bytes_received": 0
+    "bytes_received": 0,
+    "inference_frames_submitted": 0,
+    "inference_frames_dropped": 0,
+    "intelligence_updates_sent": 0
   },
   "limits": {
     "recommended_capture_fps": 4.0,

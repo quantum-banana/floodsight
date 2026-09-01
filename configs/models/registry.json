@@ -1,0 +1,56 @@
+{
+  "schema_version": "floodsight-model-registry-v1",
+  "models": [
+    {
+      "model_id": "segformer-b2-integration",
+      "model_type": "SEGMENTATION",
+      "architecture": "SegFormer-B2",
+      "version": "integration-slot",
+      "checkpoint_env": "FLOODSIGHT_SEGMENTATION_CHECKPOINT",
+      "checkpoint_sha256": null,
+      "checkpoint_format": "FLOODSIGHT_SEGFORMER_V3",
+      "taxonomy_path": "shared/taxonomy/segmentation-taxonomy-v2.yaml",
+      "taxonomy_version": "segmentation-taxonomy-v2",
+      "source_training_identity": "H100 production training; artifact supplied separately",
+      "status": "INTEGRATION",
+      "metrics": {"epoch_1_miou_reference": 0.436409},
+      "provenance": "REAL_MODEL",
+      "enabled": true,
+      "label_space": "FLOODSIGHT_SEGMENTATION_V2"
+    },
+    {
+      "model_id": "yolo-visdrone-final-slot",
+      "model_type": "DETECTION",
+      "architecture": "YOLO11l",
+      "version": "final-slot",
+      "checkpoint_env": "FLOODSIGHT_DETECTION_CHECKPOINT",
+      "checkpoint_sha256": null,
+      "checkpoint_format": "ULTRALYTICS_PT",
+      "taxonomy_path": "shared/taxonomy/detection-taxonomy-v1.yaml",
+      "taxonomy_version": "detection-taxonomy-v1",
+      "source_training_identity": "VisDrone fine-tuned model slot; artifact supplied separately",
+      "status": "FINAL",
+      "metrics": {},
+      "provenance": "REAL_MODEL",
+      "enabled": false,
+      "label_space": "FLOODSIGHT_DETECTION_V1"
+    },
+    {
+      "model_id": "yolo11l-pretrained-fallback",
+      "model_type": "DETECTION",
+      "architecture": "YOLO11l",
+      "version": "pretrained-fallback-slot",
+      "checkpoint_env": "FLOODSIGHT_DETECTION_FALLBACK_CHECKPOINT",
+      "checkpoint_sha256": null,
+      "checkpoint_format": "ULTRALYTICS_PT",
+      "taxonomy_path": "shared/taxonomy/detection-taxonomy-v1.yaml",
+      "taxonomy_version": "detection-taxonomy-v1",
+      "source_training_identity": "Verified pretrained artifact; not VisDrone fine-tuned",
+      "status": "FALLBACK",
+      "metrics": {},
+      "provenance": "PRETRAINED_FALLBACK",
+      "enabled": true,
+      "label_space": "COCO"
+    }
+  ]
+}

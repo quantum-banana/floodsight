@@ -34,9 +34,11 @@ class IngestionSessionManager:
         *,
         settings: Settings,
         clock: Callable[[], float] = time.time,
+        on_remove: Callable[[str], None] | None = None,
     ) -> None:
         self.settings = settings
         self._clock = clock
+        self._on_remove = on_remove
         self._sessions: dict[str, SessionRecord] = {}
 
     def _now_ms(self) -> int:
@@ -54,6 +56,8 @@ class IngestionSessionManager:
         ]
         for session_id in expired:
             self._sessions.pop(session_id, None)
+            if self._on_remove is not None:
+                self._on_remove(session_id)
 
     def create(self, request: IngestionSessionCreate) -> IngestionSession:
         self._prune_expired()
@@ -94,7 +98,9 @@ class IngestionSessionManager:
 
     def delete(self, session_id: str) -> None:
         self._prune_expired()
-        self._sessions.pop(session_id, None)
+        removed = self._sessions.pop(session_id, None)
+        if removed is not None and self._on_remove is not None:
+            self._on_remove(session_id)
 
     def touch(self, record: SessionRecord, state: IngestionSessionState | None = None) -> None:
         now_ms = self._now_ms()

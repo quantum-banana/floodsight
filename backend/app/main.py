@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -9,6 +10,8 @@ from app.api.router import api_router
 from app.core.config import get_settings
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging, get_logger
+from app.inference.pipeline import InferencePipeline
+from app.services.inference_coordinator import InferenceCoordinator
 from app.services.ingestion_sessions import IngestionSessionManager
 
 
@@ -16,6 +19,8 @@ def create_app() -> FastAPI:
     settings = get_settings()
     configure_logging(settings.log_level)
     logger = get_logger(__name__)
+    inference_pipeline = InferencePipeline(settings)
+    inference_coordinator = InferenceCoordinator(inference_pipeline)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -23,15 +28,18 @@ def create_app() -> FastAPI:
             "FloodSight API starting",
             extra={"environment": settings.environment, "version": __version__},
         )
+        model_loading = asyncio.create_task(asyncio.to_thread(inference_pipeline.initialize))
         yield
+        if not model_loading.done():
+            model_loading.cancel()
         logger.info("FloodSight API stopped")
 
     application = FastAPI(
         title="FloodSight API",
         summary="Flood-response decision-intelligence service",
         description=(
-            "Phase 2 media-frame ingestion foundation. No machine-learning inference or "
-            "rescue analytics are configured in this phase."
+            "FloodSight application integration: model adapters, scene fusion, explainable "
+            "rescue-zone priority, relative accessibility, and ordered live updates."
         ),
         version=__version__,
         docs_url="/docs",
@@ -47,7 +55,12 @@ def create_app() -> FastAPI:
         allow_headers=["Accept", "Content-Type"],
     )
     register_exception_handlers(application)
-    application.state.ingestion_manager = IngestionSessionManager(settings=settings)
+    application.state.inference_pipeline = inference_pipeline
+    application.state.inference_coordinator = inference_coordinator
+    application.state.ingestion_manager = IngestionSessionManager(
+        settings=settings,
+        on_remove=inference_coordinator.close,
+    )
     application.include_router(api_router)
     return application
 

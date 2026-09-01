@@ -1,1 +1,1 @@
-"""Phase 2 media-frame ingestion primitives."""
+"""Bounded media-frame ingestion primitives for live application intelligence."""
