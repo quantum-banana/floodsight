@@ -39,6 +39,12 @@ The model registry is [configs/models/registry.json](configs/models/registry.jso
 
 Missing or incompatible artifacts do not silently produce detections. The API reports `MODEL_UNAVAILABLE`, `DEGRADED`, `REAL`, `FALLBACK`, or `SIMULATED` model state. PyTorch, Transformers, and Ultralytics are optional inference dependencies; the API and FS-001 simulation remain runnable without them.
 
+Actual-media sessions expose `STANDARD`, `AERIAL`, and `AERIAL_HIGH_RECALL` inference modes. The
+high-recall fallback combines the standard full-frame pass, the existing 2x2 aerial pass, and
+deterministic 3x3 overlapping tiles. Its optional SegFormer-guided crop can trigger one extra YOLO
+inference, but semantic evidence alone can never create a detection. All accepted detections remain
+honestly labelled `PRETRAINED_FALLBACK` with their original COCO source class and confidence.
+
 The segmentation adapter preserves the frozen FloodSight taxonomy in `shared/taxonomy/segmentation-taxonomy-v2.yaml`. `pool` is rendered distinctly and is excluded from flood evidence. Road states remain distinct (`CLEAR`, `FLOODED`, `BLOCKED`, `UNKNOWN`). Unknown final-model detection labels are errors; the pretrained fallback retains its original source class while mapping only documented application categories.
 
 ## Provenance
@@ -105,7 +111,11 @@ The server accepts one metadata message followed by one JPEG binary message. The
 
 - Segmentation and detection results are normalized to original image coordinates before fusion.
 - Evidence is assigned deterministically to a 4×4 grid (`A1` through `D4`); adjacent candidate cells merge into zones.
-- Temporal tracking uses rolling evidence, stable zone IDs, bounded history, and TTL expiry. High-confidence person evidence can escalate immediately rather than waiting for smoothing.
+- High-recall temporal tracking uses rolling evidence, stable zone and object IDs, bounded history,
+  decay, and TTL expiry. Object tracks begin only from model detections. Direct `DETECTED` evidence remains
+  `REAL_ML_OUTPUT`; missed-frame `TRACK_PERSISTED` evidence is visibly `DERIVED_ANALYTIC` and uses
+  separate track confidence and real-confirmation persistence. High-confidence person evidence can
+  escalate immediately rather than waiting for smoothing.
 - Priority reasons expose their individual contributions. Pool pixels do not increase flood urgency.
 - Accessibility edges are enabled, degraded, uncertain, or excluded when blocked. Routing uses relative image-space cost and emits an alternative when one exists.
 - Route changes and significant evidence changes become backend events.

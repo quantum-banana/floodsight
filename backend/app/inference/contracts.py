@@ -20,6 +20,17 @@ class DetectionProvenance(StrEnum):
     SIMULATED = "SIMULATED"
 
 
+class DetectorInferenceMode(StrEnum):
+    STANDARD = "STANDARD"
+    AERIAL = "AERIAL"
+    AERIAL_HIGH_RECALL = "AERIAL_HIGH_RECALL"
+
+
+class DetectionObservationState(StrEnum):
+    DETECTED = "DETECTED"
+    TRACK_PERSISTED = "TRACK_PERSISTED"
+
+
 EvidenceSource = FeatureProvenance
 
 
@@ -79,6 +90,18 @@ class NormalizedDetection(ContractModel):
     source_class_id: int = Field(ge=0)
     confidence: UnitInterval
     bbox: BoundingBox
+    source_confidence: UnitInterval | None = None
+    track_id: str | None = Field(default=None, min_length=1)
+    track_confidence: UnitInterval | None = None
+    persistence: int = Field(default=1, ge=1)
+    observation_state: DetectionObservationState = DetectionObservationState.DETECTED
+    source_frame_id: int | None = Field(default=None, ge=0)
+
+    @model_validator(mode="after")
+    def preserve_source_confidence(self) -> Self:
+        if self.source_confidence is None:
+            self.source_confidence = self.confidence
+        return self
 
 
 class DetectionResult(ContractModel):

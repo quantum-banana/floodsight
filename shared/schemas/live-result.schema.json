@@ -263,6 +263,16 @@
         "data_origin": { "$ref": "#/$defs/dataOrigin" },
         "source_class": { "type": ["string", "null"] },
         "source_class_id": { "type": ["integer", "null"], "minimum": 0 },
+        "source_confidence": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "detection_confidence": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "track_id": { "type": ["string", "null"], "minLength": 1 },
+        "track_confidence": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "persistence": { "type": ["integer", "null"], "minimum": 1 },
+        "observation_state": {
+          "type": ["string", "null"],
+          "enum": ["DETECTED", "TRACK_PERSISTED", null]
+        },
+        "source_frame_id": { "type": ["integer", "null"], "minimum": 0 },
         "model_id": { "type": ["string", "null"] },
         "model_provenance": {
           "type": ["string", "null"],

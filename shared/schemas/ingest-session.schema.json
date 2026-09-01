@@ -9,6 +9,7 @@
     "session_id",
     "source_mode",
     "media_origin",
+    "detector_mode",
     "state",
     "created_at_ms",
     "last_activity_at_ms",
@@ -23,6 +24,10 @@
     "media_origin": {
       "type": "string",
       "enum": ["USER_VIDEO_FILE", "USER_WEBCAM"]
+    },
+    "detector_mode": {
+      "type": "string",
+      "enum": ["STANDARD", "AERIAL", "AERIAL_HIGH_RECALL"]
     },
     "state": { "type": "string", "enum": ["READY", "ACTIVE", "IDLE", "EXPIRED"] },
     "created_at_ms": { "type": "integer", "minimum": 0 },

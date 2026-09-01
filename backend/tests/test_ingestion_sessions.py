@@ -24,6 +24,7 @@ async def test_create_video_file_session(client: AsyncClient) -> None:
     session = IngestionSession.model_validate(response.json())
     assert session.source_mode is SourceMode.VIDEO_FILE
     assert session.media_origin is MediaOrigin.USER_VIDEO_FILE
+    assert session.detector_mode.value == "STANDARD"
     assert session.state.value == "READY"
     assert session.data_origin.value == "DERIVED_ANALYTIC"
     assert len(session.session_id) >= 20
@@ -41,12 +42,38 @@ async def test_create_webcam_session(client: AsyncClient) -> None:
     assert session.media_origin is MediaOrigin.USER_WEBCAM
 
 
+@pytest.mark.parametrize("detector_mode", ["AERIAL", "AERIAL_HIGH_RECALL"])
+async def test_create_aerial_detector_session(
+    client: AsyncClient,
+    detector_mode: str,
+) -> None:
+    response = await client.post(
+        "/api/ingest/sessions",
+        json={
+            "source_mode": "VIDEO_FILE",
+            "media_origin": "USER_VIDEO_FILE",
+            "detector_mode": detector_mode,
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["detector_mode"] == detector_mode
+    assert response.json()["limits"]["recommended_capture_fps"] == (
+        1.0 if detector_mode == "AERIAL_HIGH_RECALL" else 4.0
+    )
+
+
 @pytest.mark.parametrize(
     "payload",
     [
         {"source_mode": "DRONE_STREAM", "media_origin": "USER_VIDEO_FILE"},
         {"source_mode": "VIDEO_FILE", "media_origin": "USER_WEBCAM"},
         {"source_mode": "INVALID", "media_origin": "USER_VIDEO_FILE"},
+        {
+            "source_mode": "VIDEO_FILE",
+            "media_origin": "USER_VIDEO_FILE",
+            "detector_mode": "AERIAL_TILED",
+        },
     ],
 )
 async def test_invalid_source_or_provenance_is_structured(

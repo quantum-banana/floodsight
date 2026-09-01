@@ -2,6 +2,7 @@
   "session_id": "BByh6J3CzRKOVW05rlGxjWVTQ8LviuNL",
   "source_mode": "VIDEO_FILE",
   "media_origin": "USER_VIDEO_FILE",
+  "detector_mode": "STANDARD",
   "state": "READY",
   "created_at_ms": 1725000000000,
   "last_activity_at_ms": 1725000000000,

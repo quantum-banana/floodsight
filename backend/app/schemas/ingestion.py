@@ -3,6 +3,7 @@ from typing import Literal, Self
 
 from pydantic import Field, model_validator
 
+from app.inference.contracts import DetectorInferenceMode
 from app.schemas.base import ContractModel
 from app.schemas.live_result import DataOrigin, LiveResult, SourceMode
 from app.schemas.model_status import InferenceState, ModelStatus
@@ -42,6 +43,7 @@ class SessionLimits(ContractModel):
 class IngestionSessionCreate(ContractModel):
     source_mode: Literal[SourceMode.VIDEO_FILE, SourceMode.WEBCAM]
     media_origin: MediaOrigin
+    detector_mode: DetectorInferenceMode = DetectorInferenceMode.STANDARD
 
     @model_validator(mode="after")
     def validate_provenance_pair(self) -> Self:
@@ -60,6 +62,7 @@ class IngestionSession(ContractModel):
     session_id: str = Field(min_length=20)
     source_mode: SourceMode
     media_origin: MediaOrigin
+    detector_mode: DetectorInferenceMode
     state: IngestionSessionState
     created_at_ms: int = Field(ge=0)
     last_activity_at_ms: int = Field(ge=0)

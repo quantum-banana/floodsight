@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 
 from app.core.config import Settings
 from app.core.errors import AppError
+from app.inference.contracts import DetectorInferenceMode
 from app.schemas.ingestion import (
     IngestionSession,
     IngestionSessionCreate,
@@ -114,13 +115,19 @@ class IngestionSessionManager:
             session_id=record.session_id,
             source_mode=record.request.source_mode,
             media_origin=record.request.media_origin,
+            detector_mode=record.request.detector_mode,
             state=record.state,
             created_at_ms=record.created_at_ms,
             last_activity_at_ms=record.last_activity_at_ms,
             expires_at_ms=record.expires_at_ms,
             counters=record.counters,
             limits=SessionLimits(
-                recommended_capture_fps=self.settings.ingest_capture_fps,
+                recommended_capture_fps=(
+                    1.0
+                    if record.request.detector_mode
+                    is DetectorInferenceMode.AERIAL_HIGH_RECALL
+                    else self.settings.ingest_capture_fps
+                ),
                 jpeg_quality=self.settings.ingest_jpeg_quality,
                 max_frame_bytes=self.settings.ingest_max_frame_bytes,
                 accepted_mime_types=["image/jpeg"],

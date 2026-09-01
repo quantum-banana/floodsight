@@ -11,6 +11,7 @@ from app.core.config import Settings
 from app.inference.contracts import (
     DetectionProvenance,
     DetectionResult,
+    DetectorInferenceMode,
     ModelIdentity,
     NormalizedDetection,
     SegmentationClassStatistic,
@@ -74,7 +75,17 @@ class StubSegmentationAdapter:
 
 
 class StubDetectionAdapter:
-    def infer(self, frame: np.ndarray, *, frame_id: int, timestamp_ms: int) -> DetectionResult:
+    def infer(
+        self,
+        frame: np.ndarray,
+        *,
+        frame_id: int,
+        timestamp_ms: int,
+        detector_mode: DetectorInferenceMode = DetectorInferenceMode.STANDARD,
+        segmentation: SegmentationResult | None = None,
+    ) -> DetectionResult:
+        assert isinstance(detector_mode, DetectorInferenceMode)
+        del segmentation
         height, width = frame.shape[:2]
         return DetectionResult(
             frame_id=frame_id,

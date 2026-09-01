@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import numpy as np
 from numpy.typing import NDArray
 
+from app.inference.contracts import DetectorInferenceMode
 from app.inference.pipeline import InferencePipeline
 from app.schemas.ingestion import FrameIntelligence, FrameMetadata
 
@@ -16,6 +17,7 @@ class _PendingFrame:
     frame: NDArray[np.uint8]
     metadata: FrameMetadata
     callback: IntelligenceCallback
+    detector_mode: DetectorInferenceMode
 
 
 class InferenceCoordinator:
@@ -35,11 +37,17 @@ class InferenceCoordinator:
         frame: NDArray[np.uint8],
         metadata: FrameMetadata,
         callback: IntelligenceCallback,
+        detector_mode: DetectorInferenceMode,
     ) -> bool:
         if not self.pipeline.should_process(metadata.frame_id):
             return False
         replaced = session_id in self._pending
-        self._pending[session_id] = _PendingFrame(frame=frame, metadata=metadata, callback=callback)
+        self._pending[session_id] = _PendingFrame(
+            frame=frame,
+            metadata=metadata,
+            callback=callback,
+            detector_mode=detector_mode,
+        )
         worker = self._workers.get(session_id)
         if worker is None or worker.done():
             self._workers[session_id] = asyncio.create_task(self._run(session_id))
@@ -55,6 +63,7 @@ class InferenceCoordinator:
                     frame_id=pending.metadata.frame_id,
                     timestamp_ms=pending.metadata.captured_at_ms,
                     source_mode=pending.metadata.source_mode,
+                    detector_mode=pending.detector_mode,
                 )
                 if result is None:
                     continue

@@ -16,6 +16,17 @@ This branch integrates application-facing inference and rescue intelligence. It 
 - sanitized model registry with environment-resolved external artifacts and optional SHA-256 verification;
 - lazy SegFormer-B2 adapter compatible with `floodsight-segformer-checkpoint-v3` and a local Hugging Face directory format;
 - lazy Ultralytics YOLO adapter with explicit final-model and pretrained-fallback label handling;
+- explicit per-session `STANDARD`, operator-selected `AERIAL`, and bounded
+  `AERIAL_HIGH_RECALL` detector modes; aerial mode
+  fuses a 640-pixel full-frame pass with deterministic 2x2 overlapping 1280-pixel tile passes,
+  maps every box to original-frame coordinates, and applies person/vehicle-family NMS;
+- high-recall aerial mode retains that multiscale evidence and adds deterministic 3x3 tiles at
+  1280 pixels with 25% overlap, a benchmark-selected 0.50 person floor, and optional one-crop
+  REAL SegFormer-guided reinspection that can only admit a YOLO-confirmed supported class; its
+  session contract recommends a stable 1 FPS command-centre capture cadence;
+- high-recall per-session person/vehicle tracks use class-family-aware IoU/centre-distance association,
+  explicit detection/track confidence and real-confirmation persistence, bounded decay, and TTL
+  expiry; no track exists until a real model detection seeds it;
 - deterministic original-image coordinate normalization and class-coloured segmentation overlay;
 - semantic/detection fusion with `pool` explicitly excluded from flood evidence;
 - deterministic 4×4 rescue evidence grid and four-neighbour zone merging;
@@ -34,11 +45,22 @@ This branch integrates application-facing inference and rescue intelligence. It 
 - Segmentation integration slot: enabled, taxonomy `segmentation-taxonomy-v2`, external path `FLOODSIGHT_SEGMENTATION_CHECKPOINT`. The locally verified integration artifact is the epoch-6 production handoff (mIoU `0.583700242954744`); the artifact remains outside Git.
 - Final detection slot: present but disabled until a verified FloodSight/VisDrone checkpoint is supplied through `FLOODSIGHT_DETECTION_CHECKPOINT`.
 - Pretrained detection fallback: the official Ultralytics YOLO11l COCO-pretrained asset from release `v8.4.0`, SHA-256 `9ebd0e09d59811db4b1d61e2bc6730649608b1ac47f8dd01e2da6bca7c20023f`, is pinned in the registry and supplied externally through `FLOODSIGHT_DETECTION_FALLBACK_CHECKPOINT`. It is always labelled `PRETRAINED_FALLBACK`, never final or VisDrone fine-tuned.
+- Detector mode is selected explicitly when an ingestion session is created. `STANDARD` is the
+  efficient full-frame path. `AERIAL` adds full-frame-plus-tile fusion for small drone-view
+  objects; it does not alter the COCO source labels, the application detection taxonomy, or the
+  `PRETRAINED_FALLBACK` provenance.
+- `AERIAL_HIGH_RECALL` is the final bounded COCO-fallback accuracy path. It preserves
+  `source_class`, `source_class_id`, and `source_confidence`; cell phone and all other unsupported
+  COCO classes remain excluded. It is not a VisDrone-accuracy claim and is not a substitute for
+  the pending fine-tuned detector.
 - With no artifact configured, the API and UI report `MODEL_UNAVAILABLE`. No output is silently mocked.
 
 ## Operational semantics
 
 - `REAL_ML_OUTPUT` is reserved for direct adapter output.
+- Direct boxes are labelled `DETECTED`. A decayed box from an established object track is labelled
+  `TRACK_PERSISTED` and `DERIVED_ANALYTIC`, retains the last real source frame/class/confidence,
+  and expires after the configured TTL.
 - Fusion, zones, temporal state, priority, accessibility, routing, and reports are `DERIVED_ANALYTIC` unless all contributing adapters are explicitly simulated.
 - `pool` remains a separate semantic class and contributes zero flood urgency.
 - `road_non_flooded` is not silently promoted to operationally `CLEAR`.

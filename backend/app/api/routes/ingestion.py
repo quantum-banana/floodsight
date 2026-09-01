@@ -218,6 +218,7 @@ async def ingest_frames(websocket: WebSocket, session_id: str) -> None:
                         frame=packet.bgr,
                         metadata=metadata,
                         callback=publish,
+                        detector_mode=record.request.detector_mode,
                     ):
                         record.counters.inference_frames_dropped += 1
     except WebSocketDisconnect:

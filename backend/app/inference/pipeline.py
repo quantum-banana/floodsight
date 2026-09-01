@@ -9,8 +9,10 @@ from numpy.typing import NDArray
 
 from app.core.config import PROJECT_ROOT, Settings
 from app.inference.contracts import (
+    DetectionObservationState,
     DetectionProvenance,
     DetectionResult,
+    DetectorInferenceMode,
     FusedScene,
     SegmentationProvenance,
     SegmentationResult,
@@ -25,6 +27,7 @@ from app.inference.model_registry import (
 )
 from app.inference.segformer import SegFormerAdapter
 from app.inference.taxonomy import Taxonomy, load_taxonomy
+from app.inference.tracking import TemporalDetectionTracker
 from app.inference.yolo import YoloAdapter
 from app.intelligence.contracts import GridCellEvidence
 from app.intelligence.priority import PriorityEngine
@@ -73,6 +76,8 @@ from app.schemas.model_status import (
 class _SessionState:
     tracker: TemporalZoneTracker
     road_tracker: TemporalRoadTracker
+    object_tracker: TemporalDetectionTracker
+    detector_mode: DetectorInferenceMode
     router: RoutingEngine = field(default_factory=RoutingEngine)
     last_segmentation: SegmentationResult | None = None
     last_detection: DetectionResult | None = None
@@ -173,9 +178,32 @@ class InferencePipeline:
                     model,
                     device=self.settings.inference_device,
                     precision=self.settings.inference_precision,
-                    inference_resolution=self.settings.inference_resolution,
+                    inference_resolution=self.settings.detection_standard_resolution,
                     confidence_threshold=self.settings.detection_confidence_threshold,
                     iou_threshold=self.settings.detection_iou_threshold,
+                    aerial_inference_resolution=self.settings.detection_aerial_resolution,
+                    aerial_tile_overlap=self.settings.detection_aerial_tile_overlap,
+                    aerial_fusion_iou_threshold=(
+                        self.settings.detection_aerial_fusion_iou_threshold
+                    ),
+                    aerial_high_recall_resolution=(
+                        self.settings.detection_aerial_high_recall_resolution
+                    ),
+                    aerial_high_recall_tile_overlap=(
+                        self.settings.detection_aerial_high_recall_tile_overlap
+                    ),
+                    aerial_high_recall_person_confidence=(
+                        self.settings.detection_aerial_high_recall_person_confidence
+                    ),
+                    segformer_reinspection_enabled=(
+                        self.settings.detection_segformer_reinspection_enabled
+                    ),
+                    segformer_reinspection_padding=(
+                        self.settings.detection_segformer_reinspection_padding
+                    ),
+                    segformer_reinspection_min_pixels=(
+                        self.settings.detection_segformer_reinspection_min_pixels
+                    ),
                 )
                 adapter.load()
                 return adapter, _ready_status(model, adapter.runtime.device)
@@ -228,9 +256,11 @@ class InferencePipeline:
         frame_id: int,
         timestamp_ms: int,
         source_mode: SourceMode,
+        detector_mode: DetectorInferenceMode = DetectorInferenceMode.STANDARD,
     ) -> LiveResult | None:
         if not self.should_process(frame_id):
             return None
+        detector_mode = DetectorInferenceMode(detector_mode)
         state = self._sessions.setdefault(
             session_id,
             _SessionState(
@@ -240,11 +270,38 @@ class InferencePipeline:
                     urgent_person_confidence=self.settings.urgent_person_confidence,
                 ),
                 road_tracker=TemporalRoadTracker(window_ms=self.settings.temporal_window_ms),
+                object_tracker=TemporalDetectionTracker(
+                    track_ttl_ms=self.settings.temporal_track_ttl_ms
+                ),
+                detector_mode=detector_mode,
             ),
         )
+        if state.detector_mode is not detector_mode:
+            state.detector_mode = detector_mode
+            state.last_detection = None
+            state.object_tracker.reset()
         with self._lock:
             segmentation = self._run_segmentation(state, frame_bgr, frame_id, timestamp_ms)
-            detection = self._run_detection(state, frame_bgr, frame_id, timestamp_ms)
+            raw_detection = self._run_detection(
+                state,
+                frame_bgr,
+                frame_id,
+                timestamp_ms,
+                detector_mode,
+                segmentation,
+            )
+            detection = (
+                state.object_tracker.update(
+                    raw_detection,
+                    frame_id=frame_id,
+                    timestamp_ms=timestamp_ms,
+                    fresh_observation=(
+                        raw_detection is not None and not raw_detection.reused_from_previous
+                    ),
+                )
+                if detector_mode is DetectorInferenceMode.AERIAL_HIGH_RECALL
+                else raw_detection
+            )
         height, width = frame_bgr.shape[:2]
         scene = self.fusion.fuse(
             frame_id=frame_id,
@@ -263,7 +320,15 @@ class InferencePipeline:
         candidates = self.zone_engine.candidates(
             cells,
             timestamp_ms,
-            person_observation_fresh=(detection is not None and not detection.reused_from_previous),
+            person_observation_fresh=(
+                raw_detection is not None
+                and not raw_detection.reused_from_previous
+                and not any(
+                    item.application_class == "person"
+                    and item.observation_state is DetectionObservationState.TRACK_PERSISTED
+                    for item in (detection.detections if detection is not None else [])
+                )
+            ),
         )
         operational = state.tracker.update(candidates, timestamp_ms)
         zones = self.priority_engine.prioritize(operational)
@@ -380,6 +445,8 @@ class InferencePipeline:
         frame: NDArray[np.uint8],
         frame_id: int,
         timestamp_ms: int,
+        detector_mode: DetectorInferenceMode,
+        segmentation: SegmentationResult | None,
     ) -> DetectionResult | None:
         adapter = self.detection_adapter
         if adapter is None:
@@ -405,7 +472,13 @@ class InferencePipeline:
                 }
             )
         try:
-            result = adapter.infer(frame, frame_id=frame_id, timestamp_ms=timestamp_ms)
+            result = adapter.infer(
+                frame,
+                frame_id=frame_id,
+                timestamp_ms=timestamp_ms,
+                detector_mode=detector_mode,
+                segmentation=segmentation,
+            )
         except (RuntimeError, ValueError):
             self.detection_adapter = None
             self._detection_status = _error_status("Detection inference failed.")
@@ -618,7 +691,7 @@ def _statistics(
 def _live_detections(result: DetectionResult | None) -> list[Detection]:
     if result is None:
         return []
-    origin = (
+    model_origin = (
         DataOrigin.DEMO_SIMULATED
         if result.provenance_mode is DetectionProvenance.SIMULATED
         else DataOrigin.REAL_ML_OUTPUT
@@ -634,9 +707,20 @@ def _live_detections(result: DetectionResult | None) -> list[Detection]:
             label=item.application_class,
             confidence=item.confidence,
             bbox=item.bbox,
-            data_origin=origin,
+            data_origin=(
+                DataOrigin.DERIVED_ANALYTIC
+                if item.observation_state is DetectionObservationState.TRACK_PERSISTED
+                else model_origin
+            ),
             source_class=item.source_class,
             source_class_id=item.source_class_id,
+            source_confidence=item.source_confidence,
+            detection_confidence=item.confidence,
+            track_id=item.track_id,
+            track_confidence=item.track_confidence,
+            persistence=item.persistence,
+            observation_state=item.observation_state.value,
+            source_frame_id=item.source_frame_id,
             model_id=result.model.model_id,
             model_provenance=result.provenance_mode.value,
         )

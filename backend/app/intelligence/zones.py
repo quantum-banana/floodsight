@@ -88,9 +88,14 @@ class RescueZoneEngine:
                     if item.application_class == "person"
                 ]
                 people = [item.confidence for item in person_evidence]
-                vehicles = sum(
-                    item.application_class in VEHICLE_CLASSES for item in cell_detections
-                )
+                vehicle_confidences = [
+                    item.track_confidence
+                    if item.track_confidence is not None
+                    else item.confidence
+                    for item in cell_detections
+                    if item.application_class in VEHICLE_CLASSES
+                ]
+                vehicles = len(vehicle_confidences)
                 semantic_confidences = [
                     confidences.get(name, 0.0)
                     for name in (
@@ -103,7 +108,7 @@ class RescueZoneEngine:
                     )
                     if confidences.get(name, 0.0) > 0
                 ]
-                evidence_confidences = semantic_confidences + people
+                evidence_confidences = semantic_confidences + people + vehicle_confidences
                 confidence = (
                     sum(evidence_confidences) / len(evidence_confidences)
                     if evidence_confidences
@@ -207,7 +212,11 @@ def _person_spatial_evidence(
     flood_names = {item.name for item in taxonomy.classes if item.class_id in flood_class_ids}
     return PersonSpatialEvidence(
         detection_id=detection.detection_id,
-        confidence=detection.confidence,
+        confidence=(
+            detection.track_confidence
+            if detection.track_confidence is not None
+            else detection.confidence
+        ),
         bottom_center=anchor,
         local_flood_coverage_percent=round(_coverage(region, total, taxonomy, flood_names), 4),
         local_damage_coverage_percent=round(_coverage(region, total, taxonomy, DAMAGE_CLASSES), 4),

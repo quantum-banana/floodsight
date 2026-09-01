@@ -123,6 +123,13 @@ class Detection(ContractModel):
     data_origin: DataOrigin
     source_class: str | None = None
     source_class_id: int | None = Field(default=None, ge=0)
+    source_confidence: UnitInterval | None = None
+    detection_confidence: UnitInterval | None = None
+    track_id: str | None = Field(default=None, min_length=1)
+    track_confidence: UnitInterval | None = None
+    persistence: int | None = Field(default=None, ge=1)
+    observation_state: Literal["DETECTED", "TRACK_PERSISTED"] | None = None
+    source_frame_id: int | None = Field(default=None, ge=0)
     model_id: str | None = None
     model_provenance: Literal["REAL_MODEL", "PRETRAINED_FALLBACK", "SIMULATED"] | None = None
 
