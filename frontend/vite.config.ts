@@ -5,6 +5,7 @@ import tailwindcss from "@tailwindcss/vite";
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   const proxyTarget = env.VITE_DEV_PROXY_TARGET || "http://127.0.0.1:8000";
+  const websocketTarget = proxyTarget.replace(/^http/, "ws");
 
   return {
     plugins: [react(), tailwindcss()],
@@ -15,8 +16,9 @@ export default defineConfig(({ mode }) => {
         "/health": proxyTarget,
         "/api": proxyTarget,
         "/ws": {
-          target: proxyTarget,
+          target: websocketTarget,
           ws: true,
+          changeOrigin: true,
         },
       },
     },
