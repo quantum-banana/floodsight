@@ -96,7 +96,6 @@ export function OverlayRenderer({
             <g key={road.road_id}>
               <path d={toSvgPath(road.geometry)} stroke="#020617" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" opacity="0.85" />
               <path d={toSvgPath(road.geometry)} stroke={roadColor(road.state)} strokeWidth={road.state === "BLOCKED" ? 1.25 : 0.9} strokeDasharray={road.state === "BLOCKED" ? "2 1.3" : undefined} strokeLinecap="round" strokeLinejoin="round" />
-              <text x={road.geometry[1]?.x ? road.geometry[1].x * 100 : 0} y={road.geometry[1]?.y ? road.geometry[1].y * 100 - 1.3 : 0} fill="#cbd5e1" fontSize="2.2" paintOrder="stroke" stroke="#071016" strokeWidth="0.7">{road.road_id}</text>
             </g>
           ))}
         </g>

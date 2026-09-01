@@ -39,7 +39,7 @@ export function StatusCard({ label, value, detail, tone, icon }: StatusCardProps
   return (
     <section
       aria-label={`${label}: ${value}`}
-      className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0c1820]/85 p-5 shadow-[0_20px_50px_rgba(0,0,0,0.24)] backdrop-blur"
+      className="glass-surface group relative overflow-hidden rounded-2xl p-5"
     >
       <div
         aria-hidden="true"
@@ -63,4 +63,3 @@ export function StatusCard({ label, value, detail, tone, icon }: StatusCardProps
     </section>
   );
 }
-

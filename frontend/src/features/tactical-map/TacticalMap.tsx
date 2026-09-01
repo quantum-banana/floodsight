@@ -43,7 +43,7 @@ export function TacticalMap({
       </div>
       <div className="border-b border-white/[0.06] px-4 py-2.5"><LayerControls layers={layers} onToggle={onToggleLayer} compact /></div>
 
-      <div className="relative aspect-[16/9] min-h-64 overflow-hidden bg-[#08131a]">
+      <div className="tactical-surface relative aspect-[16/9] min-h-64 overflow-hidden">
         <div aria-hidden="true" className="tactical-grid absolute inset-0" />
         <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 h-full w-full" role="img" aria-label="Relative tactical map">
           <title>Relative tactical route and rescue zones</title>
@@ -81,8 +81,8 @@ export function TacticalMap({
           })}
           {layers.route && snapshot.route && (
             <g>
-              <path d={toSvgPath(snapshot.route.waypoints)} fill="none" stroke="#f8fafc" strokeOpacity="0.35" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
-              <path d={toSvgPath(snapshot.route.waypoints)} fill="none" stroke="#67e8f9" strokeWidth="0.9" strokeDasharray="2 1.5" strokeLinecap="round" strokeLinejoin="round" className="route-path" />
+              <path d={toSvgPath(snapshot.route.waypoints)} fill="none" stroke="#e6fbff" strokeOpacity="0.4" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
+              <path d={toSvgPath(snapshot.route.waypoints)} fill="none" stroke="#66e2ef" strokeWidth="1.05" strokeLinecap="round" strokeLinejoin="round" className="route-transition" />
             </g>
           )}
           <g transform="translate(7 86)"><circle r="3.5" fill="#071016" stroke="#67e8f9" strokeWidth="0.6" /><path d="M-1.7 0h3.4M0-1.7v3.4" stroke="#67e8f9" strokeWidth="0.7" /><text x="5" y="1" fill="#a5f3fc" fontSize="2.5" fontWeight="700">RESCUE BASE</text></g>
@@ -90,6 +90,7 @@ export function TacticalMap({
         {!snapshot.route && <div className="absolute right-3 bottom-3 rounded-lg border border-white/[0.07] bg-[#071016]/85 px-3 py-2 text-[0.65rem] text-slate-500">Route pending in this snapshot</div>}
         {snapshot.route?.changed_reason && (
           <div className="absolute right-3 bottom-3 max-w-xs rounded-lg border border-amber-300/25 bg-[#071016]/90 px-3 py-2 text-[0.65rem] leading-5 text-amber-100 shadow-xl">
+            <strong className="block tracking-wide text-amber-200 uppercase">{snapshot.route.changed_reason_code?.includes("PRIMARY_ACCESS_UNSAFE") ? "Route changed — primary access unsafe" : "Route changed — access recommendation updated"}</strong>
             <strong className="block tracking-wide uppercase">Previous route no longer preferred</strong>
             <span className="block text-slate-300">New route: {snapshot.route.label}</span>
             <span className="block text-slate-500">{snapshot.route.changed_reason}</span>
@@ -101,6 +102,15 @@ export function TacticalMap({
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-white/[0.06] px-4 py-3 text-[0.62rem] font-medium tracking-wide text-slate-500 uppercase">
         <Legend color="bg-sky-400" label="Flood" /><Legend color="bg-rose-400" label="Critical" /><Legend color="bg-orange-400" label="High" /><Legend color="bg-yellow-400" label="Moderate" /><Legend color="bg-emerald-400" label="Accessible" /><Legend color="bg-amber-400" label="Uncertain road" /><Legend color="bg-cyan-200" label="Relative route" />
       </div>
+      <details className="border-t border-sky-950/10 px-4 py-1">
+        <summary className="disclosure-summary">Tactical details</summary>
+        <dl className="grid gap-2 pb-3 pt-1 text-[0.66rem] sm:grid-cols-2">
+          <div><dt className="text-slate-600">Route edge IDs</dt><dd className="mt-1 font-mono text-slate-400">{snapshot.route?.edge_ids?.join(" → ") || "Not supplied"}</dd></div>
+          <div><dt className="text-slate-600">Previous edge IDs</dt><dd className="mt-1 font-mono text-slate-400">{snapshot.route?.previous_edge_ids?.join(" → ") || "Not supplied"}</dd></div>
+          <div><dt className="text-slate-600">Coordinate space</dt><dd className="mt-1 font-mono text-slate-400">{snapshot.coordinate_space}</dd></div>
+          <div><dt className="text-slate-600">Route cost</dt><dd className="mt-1 font-mono text-slate-400">{snapshot.route?.route_cost ?? "Not supplied"}</dd></div>
+        </dl>
+      </details>
     </section>
   );
 }

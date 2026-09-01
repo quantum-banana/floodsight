@@ -12,8 +12,8 @@ interface MediaSourceSelectorProps {
 
 const modes: Array<{ mode: MediaSourceMode; label: string; detail: string }> = [
   { mode: "SIMULATION", label: "Simulation", detail: "Deterministic replay" },
-  { mode: "VIDEO_FILE", label: "Video file", detail: "Local browser media" },
-  { mode: "WEBCAM", label: "Webcam", detail: "Device camera" },
+  { mode: "VIDEO_FILE", label: "Video file", detail: "Upload local media" },
+  { mode: "WEBCAM", label: "Webcam", detail: "Start live camera" },
 ];
 
 const formatBytes = (bytes: number) =>
@@ -34,8 +34,8 @@ export function MediaSourceSelector({ media, ingestion }: MediaSourceSelectorPro
     <section className="media-source-panel" aria-labelledby="media-source-heading">
       <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
         <div className="mr-1 min-w-36">
-          <p id="media-source-heading" className="section-label">Media source</p>
-          <p className="mt-0.5 text-[0.64rem] text-slate-600">Choose one active input</p>
+          <p id="media-source-heading" className="section-label">Flood Rescue Intelligence</p>
+          <p className="mt-0.5 text-[0.64rem] text-slate-600">Select media source</p>
         </div>
         <div className="media-mode-tabs" role="group" aria-label="Media source selector">
           {modes.map((item) => (

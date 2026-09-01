@@ -98,6 +98,8 @@ function ActualObservation({
         </div>
       </div>
 
+      {intelligence && <ModelStatusPanel status={intelligence.system_status} />}
+
       <div className="actual-media-scene relative aspect-video min-h-64 overflow-hidden bg-black">
         <video
           ref={bindVideoElement}
@@ -143,10 +145,14 @@ function ActualObservation({
         </div>
       </div>
 
-      <IngestionStatusStrip metrics={ingestion.metrics} />
       {intelligence && <SemanticLegend snapshot={intelligence} />}
-      {intelligence?.evidence_frames && <EvidenceFrameStatus snapshot={intelligence} />}
-      {intelligence && <ModelStatusPanel status={intelligence.system_status} />}
+      <details className="border-t border-sky-950/10 px-3 py-1">
+        <summary className="disclosure-summary">Inference diagnostics</summary>
+        <div className="-mx-3 border-t border-sky-950/10">
+          <IngestionStatusStrip metrics={ingestion.metrics} />
+          {intelligence?.evidence_frames && <EvidenceFrameStatus snapshot={intelligence} />}
+        </div>
+      </details>
       {!intelligence && (
         <div className="border-t border-white/[0.06] bg-white/[0.02] px-4 py-3 text-xs leading-5 text-slate-400">
           {ingestion.metrics.analysisStatus === "MODEL_UNAVAILABLE"
@@ -189,6 +195,7 @@ function SimulatedObservation({
         <div className="flex items-center gap-2"><span className="font-mono text-[0.65rem] text-slate-500">{formatTimestamp(snapshot.timestamp_ms)} UTC</span><OriginBadge origin={snapshot.data_origin} compact /></div>
       </div>
       <div className="border-b border-white/[0.06] px-4 py-2.5"><LayerControls layers={layers} onToggle={onToggleLayer} compact /></div>
+      <ModelStatusPanel status={snapshot.system_status} />
       <div className="sensor-scene relative aspect-[16/8.7] min-h-64 overflow-hidden bg-[#08141a]">
         <OverlayRenderer snapshot={snapshot} layers={layers} selectedZoneId={selectedZoneId} onSelectZone={onSelectZone} />
         <div aria-hidden="true" className="sensor-scan-line" />

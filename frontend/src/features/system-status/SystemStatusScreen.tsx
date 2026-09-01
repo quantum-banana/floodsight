@@ -1,5 +1,6 @@
 import { OriginBadge } from "../../components/OriginBadge";
 import { StatusCard } from "../../components/StatusCard";
+import { WaterAmbience } from "../../components/WaterAmbience";
 import type { SystemSnapshot } from "../../types/api";
 import type { ModelStatus } from "../../types/liveResult";
 import { IngestionDiagnosticsPanel } from "../diagnostics/IngestionDiagnosticsPanel";
@@ -62,11 +63,12 @@ export function SystemStatusScreen({ snapshot }: SystemStatusScreenProps) {
   ];
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#071016] text-slate-100">
+    <div className="arctic-shell relative min-h-screen overflow-hidden text-slate-100">
+      <WaterAmbience />
       <div aria-hidden="true" className="absolute inset-0 bg-[radial-gradient(circle_at_12%_5%,rgba(17,113,138,0.18),transparent_31%),radial-gradient(circle_at_89%_24%,rgba(20,184,166,0.08),transparent_26%)]" />
       <div aria-hidden="true" className="grid-overlay absolute inset-0 opacity-30" />
 
-      <div className="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col px-5 py-6 sm:px-8 lg:px-10">
+      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-7xl flex-col px-5 py-6 sm:px-8 lg:px-10">
         <header className="flex flex-wrap items-center justify-between gap-5 border-b border-white/[0.08] pb-6">
           <div className="flex items-center gap-3.5">
             <div className="relative grid h-11 w-11 place-items-center rounded-xl border border-cyan-300/20 bg-cyan-300/[0.08] text-cyan-300 shadow-[0_0_35px_rgba(34,211,238,0.08)]">
@@ -105,7 +107,7 @@ export function SystemStatusScreen({ snapshot }: SystemStatusScreenProps) {
 
           <IngestionDiagnosticsPanel />
 
-          <section className="mt-6 overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0c1820]/85 shadow-[0_24px_70px_rgba(0,0,0,0.28)] backdrop-blur">
+          <section className="glass-surface mt-6 overflow-hidden rounded-2xl">
             <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/[0.07] px-5 py-4 sm:px-6">
               <div>
                 <p className="text-[0.68rem] font-semibold tracking-[0.2em] text-slate-500 uppercase">Contract preview</p>

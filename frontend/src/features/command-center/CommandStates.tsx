@@ -1,15 +1,21 @@
 import { Icon } from "../../components/Icon";
+import { WaterAmbience, WaveLoader } from "../../components/WaterAmbience";
 
 export function CommandLoadingState() {
   return (
-    <main className="command-state" aria-live="polite" aria-label="Loading FloodSight command centre">
-      <div className="radar-loader" aria-hidden="true"><span /></div>
-      <p className="eyebrow mt-6">FloodSight command link</p>
-      <h1 className="mt-3 text-2xl font-semibold text-white">Loading deterministic incident</h1>
-      <p className="mt-2 text-sm text-slate-500">Validating the Phase 1 backend contract…</p>
+    <main className="arctic-shell command-state" aria-live="polite" aria-label="Loading FloodSight command centre">
+      <WaterAmbience />
+      <section className="relative z-10 text-center">
+        <p className="text-lg font-bold tracking-[0.18em] text-slate-900 uppercase">FloodSight</p>
+        <WaveLoader />
+        <p className="eyebrow mt-5">Initialising Decision Intelligence</p>
+        <h1 className="mt-3 text-2xl font-semibold text-white">Loading deterministic incident</h1>
+        <p className="mt-2 text-sm text-slate-500">Segmentation · Detection · Connecting command centre…</p>
+      </section>
     </main>
   );
 }
+
 interface CommandOfflineStateProps {
   title?: string;
   message: string;
@@ -22,10 +28,11 @@ export function CommandOfflineState({
   onRetry,
 }: CommandOfflineStateProps) {
   return (
-    <main className="command-state px-5">
-      <section role="alert" className="command-panel max-w-lg p-8 text-center sm:p-10">
-        <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl border border-rose-400/20 bg-rose-400/[0.08] text-rose-300"><Icon name="alert" className="h-6 w-6" /></span>
-        <p className="eyebrow mt-6 text-rose-300">Backend offline</p>
+    <main className="arctic-shell command-state px-5">
+      <WaterAmbience />
+      <section role="alert" className="command-panel relative z-10 max-w-lg p-8 text-center sm:p-10">
+        <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl border border-rose-400/25 bg-rose-50 text-rose-600"><Icon name="alert" className="h-6 w-6" /></span>
+        <p className="eyebrow mt-6 text-rose-600">Backend offline</p>
         <h1 className="mt-3 text-2xl font-semibold text-white">{title}</h1>
         <p className="mt-3 text-sm leading-6 text-slate-400">{message}</p>
         <p className="mt-2 text-xs leading-5 text-slate-600">No local incident values have been substituted.</p>
@@ -37,7 +44,7 @@ export function CommandOfflineState({
 
 export function EmptyState({ label }: { label: string }) {
   return (
-    <div className="grid min-h-36 place-items-center rounded-xl border border-dashed border-white/[0.09] bg-white/[0.015] p-6 text-center text-sm text-slate-600">
+    <div className="empty-state grid min-h-36 place-items-center rounded-xl border border-dashed p-6 text-center text-sm text-slate-600">
       {label}
     </div>
   );

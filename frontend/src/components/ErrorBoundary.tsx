@@ -22,7 +22,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   render() {
     if (this.state.hasError) {
       return (
-        <main className="grid min-h-screen place-items-center bg-[#071016] p-6 text-slate-100">
+        <main className="arctic-shell grid min-h-screen place-items-center p-6 text-slate-100">
           <section className="max-w-md rounded-2xl border border-rose-400/20 bg-rose-400/[0.06] p-8 text-center">
             <p className="text-xs font-bold tracking-[0.2em] text-rose-300 uppercase">Interface fault</p>
             <h1 className="mt-3 text-2xl font-semibold">FloodSight could not render this view.</h1>
@@ -35,4 +35,3 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     return this.props.children;
   }
 }
-

@@ -18,16 +18,16 @@ export function ApplicationHeader({
   onOpenReport,
 }: ApplicationHeaderProps) {
   return (
-    <header className="command-header sticky top-0 z-30 border-b border-white/[0.07] bg-[#071016]/94 backdrop-blur-xl">
-      <div className="mx-auto flex min-h-16 max-w-[1600px] items-center justify-between gap-4 px-4 py-3 sm:px-6">
+    <header className="command-header sticky top-0 z-30 border-b">
+      <div className="mx-auto flex min-h-14 max-w-[1600px] items-center justify-between gap-4 px-4 py-2.5 sm:px-6">
         <div className="flex min-w-0 items-center gap-3 sm:gap-5">
           <a href="/" className="flex shrink-0 items-center gap-2.5 rounded-lg focus-visible:outline-2 focus-visible:outline-cyan-300">
-            <span className="grid h-9 w-9 place-items-center rounded-lg border border-cyan-300/20 bg-cyan-300/[0.07] text-cyan-300">
+            <span className="grid h-8 w-8 place-items-center rounded-lg border border-cyan-300/25 bg-cyan-50/70 text-cyan-700">
               <Icon name="water" className="h-5 w-5" />
             </span>
             <span className="hidden text-sm font-bold tracking-[0.16em] text-white uppercase sm:inline">FloodSight</span>
           </a>
-          <span aria-hidden="true" className="hidden h-7 w-px bg-white/[0.08] md:block" />
+          <span aria-hidden="true" className="hidden h-7 w-px bg-sky-900/10 md:block" />
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <span className="font-mono text-xs font-semibold text-cyan-300">{incident.incident_id}</span>
