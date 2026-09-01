@@ -16,6 +16,7 @@ import {
 } from "../services/ingestionSocket";
 import type {
   ActualSourceMode,
+  DetectorInferenceMode,
   FrameIntelligence,
   FrameMetadata,
   FrameResult,
@@ -28,6 +29,7 @@ interface UseFrameIngestionOptions {
   videoElement: HTMLVideoElement | null;
   sourceMode: ActualSourceMode | null;
   mediaOrigin: MediaOrigin | null;
+  detectorMode: DetectorInferenceMode;
   sourceReady: boolean;
   captureActive: boolean;
   sourceGeneration: number;
@@ -38,6 +40,7 @@ const initialMetrics = (): IngestionMetrics => ({
   sessionState: null,
   sourceMode: null,
   mediaOrigin: null,
+  detectorMode: null,
   connectionState: "idle",
   requestedFps: INGEST_CAPTURE_FPS,
   measuredFps: 0,
@@ -71,6 +74,7 @@ export function useFrameIngestion({
   videoElement,
   sourceMode,
   mediaOrigin,
+  detectorMode,
   sourceReady,
   captureActive,
   sourceGeneration,
@@ -124,10 +128,11 @@ export function useFrameIngestion({
       ...initialMetrics(),
       sourceMode,
       mediaOrigin,
+      detectorMode,
       connectionState: "creating_session",
     });
 
-    void createIngestionSession(sourceMode, mediaOrigin)
+    void createIngestionSession(sourceMode, mediaOrigin, detectorMode)
       .then((session) => {
         if (cancelled) {
           void deleteIngestionSession(session.session_id).catch(() => undefined);
@@ -138,6 +143,7 @@ export function useFrameIngestion({
           ...current,
           sessionId,
           sessionState: session.state,
+          detectorMode: session.detector_mode,
           requestedFps: Math.min(INGEST_CAPTURE_FPS, session.limits.recommended_capture_fps),
           connectionState: "connecting",
         }));
@@ -263,7 +269,7 @@ export function useFrameIngestion({
       socketRef.current = null;
       if (sessionId) void deleteIngestionSession(sessionId).catch(() => undefined);
     };
-  }, [clearAckTimer, mediaOrigin, retryGeneration, sourceGeneration, sourceMode, sourceReady]);
+  }, [clearAckTimer, detectorMode, mediaOrigin, retryGeneration, sourceGeneration, sourceMode, sourceReady]);
 
   useEffect(() => {
     if (!sourceReady || !sourceMode || !mediaOrigin || !captureActive) {

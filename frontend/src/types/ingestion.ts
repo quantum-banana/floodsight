@@ -7,6 +7,7 @@ import type {
 
 export type ActualSourceMode = "VIDEO_FILE" | "WEBCAM";
 export type MediaOrigin = "USER_VIDEO_FILE" | "USER_WEBCAM";
+export type DetectorInferenceMode = "STANDARD" | "AERIAL" | "AERIAL_HIGH_RECALL";
 export type IngestionSessionState = "READY" | "ACTIVE" | "IDLE" | "EXPIRED";
 
 export interface SessionCounters {
@@ -32,6 +33,7 @@ export interface IngestionSession {
   session_id: string;
   source_mode: ActualSourceMode;
   media_origin: MediaOrigin;
+  detector_mode: DetectorInferenceMode;
   state: IngestionSessionState;
   created_at_ms: number;
   last_activity_at_ms: number;
@@ -104,6 +106,7 @@ export interface IngestionMetrics {
   sessionState: IngestionSessionState | null;
   sourceMode: ActualSourceMode | null;
   mediaOrigin: MediaOrigin | null;
+  detectorMode: DetectorInferenceMode | null;
   connectionState: IngestionConnectionState;
   requestedFps: number;
   measuredFps: number;

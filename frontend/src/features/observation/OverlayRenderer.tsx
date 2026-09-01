@@ -109,12 +109,18 @@ export function OverlayRenderer({
         if (detection.category === "PERSON" && !layers.people) return null;
         if (detection.category === "VEHICLE" && !layers.vehicles) return null;
         const person = detection.category === "PERSON";
+        const persisted = detection.observation_state === "TRACK_PERSISTED";
+        const confidence = persisted
+          ? detection.track_confidence ?? detection.confidence
+          : detection.detection_confidence ?? detection.confidence;
         const color = person ? "#f8fafc" : "#67e8f9";
+        const label = `${person ? "PERSON" : "VEHICLE"}${persisted ? " T" : ""}`;
         return (
-          <g key={detection.detection_id}>
-            <rect x={detection.bbox.x * 100} y={detection.bbox.y * 100} width={detection.bbox.width * 100} height={detection.bbox.height * 100} fill="none" stroke={color} strokeWidth="0.55" />
-            <rect x={detection.bbox.x * 100} y={detection.bbox.y * 100 - 3.1} width={person ? 7.2 : 8.8} height="3.1" fill={color} />
-            <text x={detection.bbox.x * 100 + 0.6} y={detection.bbox.y * 100 - 0.8} fill="#071016" fontSize="1.7" fontWeight="700">{person ? "PERSON" : "VEHICLE"} {Math.round(detection.confidence * 100)}</text>
+          <g key={detection.detection_id} opacity={persisted ? 0.76 : 1}>
+            <title>{persisted ? "Temporally persisted track" : "Current model detection"}: {detection.source_class ?? detection.label}, {Math.round(confidence * 100)}% confidence</title>
+            <rect x={detection.bbox.x * 100} y={detection.bbox.y * 100} width={detection.bbox.width * 100} height={detection.bbox.height * 100} fill="none" stroke={color} strokeWidth="0.55" strokeDasharray={persisted ? "1.4 0.9" : undefined} />
+            <rect x={detection.bbox.x * 100} y={detection.bbox.y * 100 - 3.1} width={person ? (persisted ? 9.6 : 7.2) : (persisted ? 11.3 : 8.8)} height="3.1" fill={color} />
+            <text x={detection.bbox.x * 100 + 0.6} y={detection.bbox.y * 100 - 0.8} fill="#071016" fontSize="1.7" fontWeight="700">{label} {Math.round(confidence * 100)}</text>
           </g>
         );
       })}

@@ -1,16 +1,32 @@
 import { Icon } from "../../components/Icon";
 import type { FrameIngestionController } from "../../hooks/useFrameIngestion";
 import type { MediaSourceController, MediaSourceMode } from "../../hooks/useMediaSource";
+import type { DetectorInferenceMode } from "../../types/ingestion";
 
 interface MediaSourceSelectorProps {
   media: MediaSourceController;
   ingestion: FrameIngestionController;
+  detectorMode: DetectorInferenceMode;
+  onDetectorModeChange: (mode: DetectorInferenceMode) => void;
 }
 
 const modes: Array<{ mode: MediaSourceMode; label: string }> = [
   { mode: "VIDEO_FILE", label: "Video" },
   { mode: "WEBCAM", label: "Live camera" },
 ];
+
+const detectorModes: Array<{
+  mode: DetectorInferenceMode;
+  label: string;
+  description: string;
+}> = [
+  { mode: "STANDARD", label: "Standard", description: "Full frame" },
+  { mode: "AERIAL", label: "Aerial", description: "Tiled" },
+  { mode: "AERIAL_HIGH_RECALL", label: "High recall", description: "Tiled + tracking" },
+];
+
+const detectorModeLabel = (mode: DetectorInferenceMode) =>
+  detectorModes.find((item) => item.mode === mode)?.label ?? "High recall";
 
 const formatBytes = (bytes: number) => bytes >= 1024 * 1024
   ? `${(bytes / 1024 / 1024).toFixed(1)} MB`
@@ -26,7 +42,12 @@ const operationalState = (state: MediaSourceController["state"]) => ({
   ERROR: "DEGRADED",
 })[state];
 
-export function MediaSourceSelector({ media, ingestion }: MediaSourceSelectorProps) {
+export function MediaSourceSelector({
+  media,
+  ingestion,
+  detectorMode,
+  onDetectorModeChange,
+}: MediaSourceSelectorProps) {
   const canStart = media.mode === "WEBCAM" || (
     media.mode === "VIDEO_FILE" && Boolean(media.videoSrc) && media.state !== "PREPARING"
   );
@@ -51,6 +72,26 @@ export function MediaSourceSelector({ media, ingestion }: MediaSourceSelectorPro
       </div>
 
       <div className="source-actions" aria-label="Actual media controls">
+        <details className="detector-profile">
+          <summary aria-label={`Detection profile: ${detectorModeLabel(detectorMode)}`}>
+            <Icon name="eye" />
+            Detection: {detectorModeLabel(detectorMode)}
+          </summary>
+          <div className="detector-profile-menu" role="group" aria-label="Detector inference mode">
+            {detectorModes.map((item) => (
+              <button
+                key={item.mode}
+                type="button"
+                aria-pressed={detectorMode === item.mode}
+                onClick={() => onDetectorModeChange(item.mode)}
+              >
+                <span>{item.label}</span>
+                <small>{item.description}</small>
+              </button>
+            ))}
+          </div>
+        </details>
+
         {media.mode === "VIDEO_FILE" && (
           <>
             {media.fileInfo && (

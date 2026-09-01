@@ -43,6 +43,7 @@ const ingestionMetrics = {
   sessionState: null,
   sourceMode: null,
   mediaOrigin: null,
+  detectorMode: null,
   connectionState: "idle" as const,
   requestedFps: 4,
   measuredFps: 0,
@@ -138,7 +139,24 @@ describe("FloodSight command center", () => {
     expect(within(selector).getByRole("button", { name: "Video" })).toHaveAttribute("aria-pressed", "true");
     expect(within(selector).getByRole("button", { name: "Live camera" })).toBeEnabled();
     expect(screen.getAllByLabelText("Choose video").length).toBeGreaterThan(0);
+    expect(screen.getByLabelText("Detection profile: High recall")).toBeInTheDocument();
+    expect(vi.mocked(useFrameIngestion).mock.calls.at(-1)?.[0].detectorMode).toBe("AERIAL_HIGH_RECALL");
     expect(screen.queryByText(/simulation|replay|demo scenario/i)).not.toBeInTheDocument();
+  });
+
+  it("allows an operator to change the detector profile explicitly", () => {
+    render(<CommandCenter />);
+
+    fireEvent.click(screen.getByLabelText("Detection profile: High recall"));
+    const detectorSelector = screen.getByRole("group", { name: "Detector inference mode" });
+    expect(within(detectorSelector).getByRole("button", { name: /High recall/i })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    fireEvent.click(within(detectorSelector).getByRole("button", { name: /Standard/i }));
+
+    expect(vi.mocked(useFrameIngestion).mock.calls.at(-1)?.[0].detectorMode).toBe("STANDARD");
+    expect(screen.getByLabelText("Detection profile: Standard")).toBeInTheDocument();
   });
 
   it("labels actual local media honestly without substituting simulated analytics", () => {

@@ -91,6 +91,13 @@ export interface Detection {
   data_origin: DataOrigin;
   source_class?: string | null;
   source_class_id?: number | null;
+  source_confidence?: number | null;
+  detection_confidence?: number | null;
+  track_id?: string | null;
+  track_confidence?: number | null;
+  persistence?: number | null;
+  observation_state?: "DETECTED" | "TRACK_PERSISTED" | null;
+  source_frame_id?: number | null;
   model_id?: string | null;
   model_provenance?: "REAL_MODEL" | "PRETRAINED_FALLBACK" | "SIMULATED" | null;
 }

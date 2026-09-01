@@ -6,6 +6,7 @@ import { WaterAmbience } from "../../components/WaterAmbience";
 import { useDemoIncident, type ConnectionState } from "../../hooks/useDemoIncident";
 import { useFrameIngestion } from "../../hooks/useFrameIngestion";
 import { useMediaSource, type MediaSourceState } from "../../hooks/useMediaSource";
+import type { DetectorInferenceMode } from "../../types/ingestion";
 import type { IncidentMetadata } from "../../types/liveResult";
 import { EventTimeline } from "../events/EventTimeline";
 import { ApplicationHeader } from "../incident/ApplicationHeader";
@@ -44,10 +45,12 @@ const operationalLabel = (state: string, mediaState: MediaSourceState, hasIntell
 export function CommandCenter({ demoMode = false }: CommandCenterProps) {
   const demo = useDemoIncident(demoMode);
   const media = useMediaSource(demoMode ? "SIMULATION" : "VIDEO_FILE");
+  const [detectorMode, setDetectorMode] = useState<DetectorInferenceMode>("AERIAL_HIGH_RECALL");
   const ingestion = useFrameIngestion({
     videoElement: media.videoElement,
     sourceMode: media.mode === "SIMULATION" ? null : media.mode,
     mediaOrigin: media.mediaOrigin,
+    detectorMode,
     sourceReady: media.readyForIngestion,
     captureActive: media.isPlaying,
     sourceGeneration: media.generation,
@@ -109,7 +112,14 @@ export function CommandCenter({ demoMode = false }: CommandCenterProps) {
                 <div><span>Demo scenario</span><ConnectionIndicator state={demo.connectionState} /></div>
                 <SimulationControls state={demo.connectionState} snapshotIndex={snapshot?.snapshot_index ?? 0} snapshotCount={snapshot?.snapshot_count ?? 1} onStart={demo.start} onPause={demo.pause} onResume={demo.resume} onReset={demo.reset} />
               </section>
-            ) : <MediaSourceSelector media={media} ingestion={ingestion} />}
+            ) : (
+              <MediaSourceSelector
+                media={media}
+                ingestion={ingestion}
+                detectorMode={detectorMode}
+                onDetectorModeChange={setDetectorMode}
+              />
+            )}
 
             {media.error && <StatusBanner tone="critical" message={media.error} />}
             {ingestion.metrics.lastError && !usingSimulation && <StatusBanner tone={ingestion.metrics.connectionState === "offline" ? "critical" : "warning"} message={ingestion.metrics.lastError} action={ingestion.retry} />}

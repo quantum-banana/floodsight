@@ -1,6 +1,11 @@
 import { API_BASE_URL, API_TIMEOUT_MS } from "../config/environment";
 import type { IncidentReport } from "../types/api";
-import type { ActualSourceMode, IngestionSession, MediaOrigin } from "../types/ingestion";
+import type {
+  ActualSourceMode,
+  DetectorInferenceMode,
+  IngestionSession,
+  MediaOrigin,
+} from "../types/ingestion";
 import { ApiError } from "./api";
 
 async function ingestionRequest<T>(path: string, init: RequestInit): Promise<T> {
@@ -34,10 +39,15 @@ async function ingestionRequest<T>(path: string, init: RequestInit): Promise<T> 
 export function createIngestionSession(
   sourceMode: ActualSourceMode,
   mediaOrigin: MediaOrigin,
+  detectorMode: DetectorInferenceMode,
 ): Promise<IngestionSession> {
   return ingestionRequest<IngestionSession>("/api/ingest/sessions", {
     method: "POST",
-    body: JSON.stringify({ source_mode: sourceMode, media_origin: mediaOrigin }),
+    body: JSON.stringify({
+      source_mode: sourceMode,
+      media_origin: mediaOrigin,
+      detector_mode: detectorMode,
+    }),
   });
 }
 

@@ -25,6 +25,7 @@ const session = {
   session_id: "frame-session-1234567890",
   source_mode: "VIDEO_FILE" as const,
   media_origin: "USER_VIDEO_FILE" as const,
+  detector_mode: "AERIAL_HIGH_RECALL" as const,
   state: "READY" as const,
   created_at_ms: 1,
   last_activity_at_ms: 1,
@@ -97,6 +98,7 @@ describe("frame ingestion lifecycle", () => {
         videoElement: video,
         sourceMode: "VIDEO_FILE",
         mediaOrigin: "USER_VIDEO_FILE",
+        detectorMode: "AERIAL_HIGH_RECALL",
         sourceReady: true,
         captureActive: true,
         sourceGeneration: 1,
@@ -104,6 +106,11 @@ describe("frame ingestion lifecycle", () => {
     );
 
     await waitFor(() => expect(openIngestionSocket).toHaveBeenCalledWith(session.session_id, expect.any(Object)));
+    expect(createIngestionSession).toHaveBeenCalledWith(
+      "VIDEO_FILE",
+      "USER_VIDEO_FILE",
+      "AERIAL_HIGH_RECALL",
+    );
     act(() => handlers?.onOpen());
     await waitFor(() => expect(getCallback()).not.toBeNull());
     act(() => getCallback()?.(300, {} as VideoFrameCallbackMetadata));
@@ -178,6 +185,7 @@ describe("frame ingestion lifecycle", () => {
       videoElement: video,
       sourceMode: "VIDEO_FILE" as const,
       mediaOrigin: "USER_VIDEO_FILE" as const,
+      detectorMode: "AERIAL_HIGH_RECALL" as const,
       sourceReady: true,
       captureActive: true,
       sourceGeneration: 4,
@@ -206,6 +214,7 @@ describe("frame ingestion lifecycle", () => {
         videoElement: videoFixture().video,
         sourceMode: "WEBCAM",
         mediaOrigin: "USER_WEBCAM",
+        detectorMode: "AERIAL_HIGH_RECALL",
         sourceReady: true,
         captureActive: true,
         sourceGeneration: 8,
