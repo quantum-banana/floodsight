@@ -33,4 +33,4 @@ echo "Running frontend tests ..."
 echo "Building frontend production bundle ..."
 (cd "$PROJECT_ROOT/frontend" && npm run build)
 
-echo "All FloodSight Phase 3 code gates passed."
+echo "All FloodSight application and Phase 3 data code gates passed."

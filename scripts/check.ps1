@@ -57,4 +57,4 @@ try {
     Pop-Location
 }
 
-Write-Host "All FloodSight Phase 3 code gates passed." -ForegroundColor Green
+Write-Host "All FloodSight application and Phase 3 data code gates passed." -ForegroundColor Green
