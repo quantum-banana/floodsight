@@ -18,6 +18,7 @@ const severityClasses = {
 
 export function IncidentOverview({ snapshot, connectionState }: IncidentOverviewProps) {
   const stats = snapshot.statistics;
+  const simulated = snapshot.data_origin === "DEMO_SIMULATED";
   const highest = snapshot.zones.find((zone) => zone.zone_id === snapshot.highest_priority_zone_id);
   const statItems = [
     { label: "Flood coverage", value: `${stats.flooded_area_percent.value}%`, icon: "water" as const },
@@ -31,7 +32,7 @@ export function IncidentOverview({ snapshot, connectionState }: IncidentOverview
   return (
     <aside className="command-panel min-w-0" aria-labelledby="overview-heading">
       <div className="panel-heading">
-        <div><h2 id="overview-heading" className="panel-title">Incident overview</h2><p className="panel-subtitle">Latest simulated observation</p></div>
+        <div><h2 id="overview-heading" className="panel-title">Incident overview</h2><p className="panel-subtitle">{simulated ? "Latest simulated observation" : `Backend intelligence · Frame ${snapshot.frame_id}`}</p></div>
         <span className={`rounded-lg border px-2.5 py-1 text-[0.66rem] font-bold tracking-[0.14em] uppercase ${severityClasses[snapshot.incident_severity]}`}>{severityLabel(snapshot.incident_severity)}</span>
       </div>
       <div className="grid grid-cols-2 gap-px bg-white/[0.06]">

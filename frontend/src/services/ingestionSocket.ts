@@ -1,10 +1,14 @@
 import { WS_BASE_URL } from "../config/environment";
-import type { FrameMetadata, FrameResult } from "../types/ingestion";
-import { parseFrameResult } from "../utils/ingestionValidation";
+import type { FrameIntelligence, FrameMetadata, FrameResult } from "../types/ingestion";
+import {
+  parseFrameIntelligence,
+  parseFrameResult,
+} from "../utils/ingestionValidation";
 
 export interface IngestionSocketHandlers {
   onOpen: () => void;
   onResult: (result: FrameResult) => void;
+  onIntelligence: (message: FrameIntelligence) => void;
   onMalformedMessage: () => void;
   onError: () => void;
   onClose: (event: CloseEvent) => void;
@@ -33,12 +37,18 @@ export function openIngestionSocket(
       return;
     }
     try {
-      const result = parseFrameResult(JSON.parse(event.data));
-      if (!result) {
-        handlers.onMalformedMessage();
+      const payload: unknown = JSON.parse(event.data);
+      const result = parseFrameResult(payload);
+      if (result) {
+        handlers.onResult(result);
         return;
       }
-      handlers.onResult(result);
+      const intelligence = parseFrameIntelligence(payload);
+      if (intelligence) {
+        handlers.onIntelligence(intelligence);
+        return;
+      }
+      handlers.onMalformedMessage();
     } catch {
       handlers.onMalformedMessage();
     }

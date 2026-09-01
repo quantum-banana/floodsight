@@ -1,4 +1,9 @@
-import type { DataOrigin } from "./liveResult";
+import type {
+  DataOrigin,
+  InferenceState,
+  LiveResult,
+  ModelStatus,
+} from "./liveResult";
 
 export type ActualSourceMode = "VIDEO_FILE" | "WEBCAM";
 export type MediaOrigin = "USER_VIDEO_FILE" | "USER_WEBCAM";
@@ -11,6 +16,9 @@ export interface SessionCounters {
   frames_out_of_order: number;
   protocol_errors: number;
   bytes_received: number;
+  inference_frames_submitted?: number;
+  inference_frames_dropped?: number;
+  intelligence_updates_sent?: number;
 }
 
 export interface SessionLimits {
@@ -31,6 +39,14 @@ export interface IngestionSession {
   counters: SessionCounters;
   limits: SessionLimits;
   data_origin: Extract<DataOrigin, "DERIVED_ANALYTIC">;
+}
+
+export interface FrameIntelligence {
+  type: "frame_intelligence";
+  session_id: string;
+  frame_id: number;
+  sequence: number;
+  result: LiveResult;
 }
 
 export interface FrameMetadata {
@@ -68,6 +84,9 @@ export interface FrameResult {
   decoded_frame: { width: number; height: number; channels: number } | null;
   quality: FrameQuality | null;
   data_origin: Extract<DataOrigin, "DERIVED_ANALYTIC">;
+  inference_state?: InferenceState | null;
+  segmentation_status?: ModelStatus | null;
+  detection_status?: ModelStatus | null;
 }
 
 export type IngestionConnectionState =
@@ -99,6 +118,6 @@ export interface IngestionMetrics {
   latestProcessingMs: number | null;
   latestQualityState: string | null;
   lastError: string | null;
-  modelStatus: "NOT_CONFIGURED";
-  analysisStatus: "DEMO_SIMULATED";
+  modelStatus: string;
+  analysisStatus: InferenceState | "AWAITING_FRAME";
 }

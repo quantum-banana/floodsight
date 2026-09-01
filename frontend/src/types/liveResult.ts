@@ -12,7 +12,16 @@ export type SourceMode =
   | "DEMO_REPLAY"
   | "SIMULATION";
 export type CoordinateSpace = "NORMALIZED_IMAGE" | "RELATIVE_TACTICAL";
-export type ModelState = "not_configured" | "loading" | "ready" | "error";
+export type ModelState = "not_configured" | "loading" | "ready" | "unavailable" | "error";
+export type InferenceState =
+  | "CONNECTING"
+  | "LIVE"
+  | "DEGRADED"
+  | "MODEL_LOADING"
+  | "MODEL_UNAVAILABLE"
+  | "SIMULATED_FALLBACK"
+  | "ERROR";
+export type ModelOperationalMode = "REAL" | "FALLBACK" | "SIMULATED" | "UNAVAILABLE";
 export type StreamState = "CONNECTING" | "PLAYING" | "PAUSED" | "COMPLETE";
 export type Severity = "LOW" | "MODERATE" | "HIGH" | "CRITICAL";
 export type AccessStatus = "ACCESSIBLE" | "DEGRADED" | "BLOCKED" | "ISOLATED" | "UNKNOWN";
@@ -22,6 +31,21 @@ export interface SystemStatus {
   api: "operational" | "degraded" | "offline";
   segmentation_model: ModelState;
   detection_model: ModelState;
+  inference_state?: InferenceState | null;
+  segmentation_details?: ModelStatus | null;
+  detection_details?: ModelStatus | null;
+}
+
+export interface ModelStatus {
+  status: ModelState;
+  model: string | null;
+  mode: ModelOperationalMode;
+  version: string | null;
+  device: string | null;
+  latency_ms: number | null;
+  last_successful_inference_ms: number | null;
+  provenance_mode: string | null;
+  message: string | null;
 }
 
 export interface IncidentMetadata {
@@ -65,13 +89,18 @@ export interface Detection {
   confidence: number;
   bbox: BoundingBox;
   data_origin: DataOrigin;
+  source_class?: string | null;
+  source_class_id?: number | null;
+  model_id?: string | null;
 }
 
 export interface SegmentationClass {
+  class_id?: number | null;
   label: string;
   coverage_percent: number;
   confidence: number;
   data_origin: DataOrigin;
+  color?: [number, number, number] | null;
 }
 
 export interface OverlayRegion {
@@ -87,6 +116,12 @@ export interface Segmentation {
   status: "not_configured" | "simulated" | "processing" | "ready" | "error";
   classes: SegmentationClass[];
   regions: OverlayRegion[];
+  mask?: {
+    encoding: "PNG_BASE64";
+    width: number;
+    height: number;
+    data: string;
+  } | null;
 }
 
 export interface Road {
@@ -97,6 +132,9 @@ export interface Road {
   geometry: Point[];
   confidence: number | null;
   data_origin: DataOrigin;
+  travel_cost?: number | null;
+  enabled?: boolean | null;
+  uncertainty?: number | null;
 }
 
 export interface ZoneReason {
@@ -125,6 +163,11 @@ export interface Zone {
   reasons: ZoneReason[];
   updated_at_ms: number;
   data_origin: DataOrigin;
+  grid_cells?: string[];
+  building_damage_coverage_percent?: number;
+  pool_coverage_percent?: number;
+  temporal_samples?: number;
+  stale?: boolean;
 }
 
 export interface IncidentEvent {
@@ -144,6 +187,20 @@ export interface Route {
   waypoints: Point[];
   distance_m: number | null;
   access_summary: string;
+  data_origin: DataOrigin;
+  edge_ids?: string[];
+  route_cost?: number | null;
+  changed_reason?: string | null;
+}
+
+export interface SceneSummary {
+  water_flood_coverage_percent: number;
+  pool_coverage_percent: number;
+  road_clear_coverage_percent: number;
+  road_flooded_coverage_percent: number;
+  road_blocked_coverage_percent: number;
+  building_damage_coverage_percent: number;
+  provenance: Array<"SEGMENTATION" | "DETECTION" | "DERIVED" | "SIMULATED">;
   data_origin: DataOrigin;
 }
 
@@ -168,5 +225,13 @@ export interface LiveResult {
   zones: Zone[];
   events: IncidentEvent[];
   route: Route | null;
+  route_alternatives?: Route[];
+  scene_summary?: SceneSummary | null;
+  source_dimensions?: { width: number; height: number } | null;
+  evidence_frames?: {
+    segmentation_source_frame_id: number | null;
+    detection_source_frame_id: number | null;
+    segmentation_reused: boolean;
+    detection_reused: boolean;
+  } | null;
 }
-

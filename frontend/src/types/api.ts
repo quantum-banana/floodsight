@@ -3,7 +3,8 @@ import type {
   DataOrigin,
   IncidentMetadata,
   LiveResult,
-  ModelState,
+  InferenceState,
+  ModelStatus,
   Severity,
   SourceMode,
   Statistics,
@@ -15,14 +16,10 @@ export interface HealthResponse {
   version: string;
 }
 
-export interface ModelStatus {
-  status: ModelState;
-  model: string | null;
-}
-
 export interface ModelStatusResponse {
   segmentation: ModelStatus;
   detection: ModelStatus;
+  inference_state: InferenceState;
 }
 
 export interface SystemSnapshot {
@@ -62,10 +59,15 @@ export interface IncidentReport {
   severity: Severity;
   statistics: Statistics;
   critical_zone_count: number;
-  highest_priority_zone_id: string;
-  highest_priority_zone_name: string;
+  highest_priority_zone_id: string | null;
+  highest_priority_zone_name: string | null;
   explanation: string;
   access_summary: string;
   responsible_ai_statement: string;
   data_origin: DataOrigin;
+  generated_from_frame_id?: number | null;
+  priority_order?: string[];
+  reason_codes?: string[];
+  route?: LiveResult["route"];
+  model_provenance?: Record<string, string>;
 }

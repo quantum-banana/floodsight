@@ -16,11 +16,13 @@ import {
 } from "../services/ingestionSocket";
 import type {
   ActualSourceMode,
+  FrameIntelligence,
   FrameMetadata,
   FrameResult,
   IngestionMetrics,
   MediaOrigin,
 } from "../types/ingestion";
+import type { LiveResult, ModelStatus } from "../types/liveResult";
 
 interface UseFrameIngestionOptions {
   videoElement: HTMLVideoElement | null;
@@ -50,12 +52,18 @@ const initialMetrics = (): IngestionMetrics => ({
   latestProcessingMs: null,
   latestQualityState: null,
   lastError: null,
-  modelStatus: "NOT_CONFIGURED",
-  analysisStatus: "DEMO_SIMULATED",
+  modelStatus: "UNAVAILABLE",
+  analysisStatus: "AWAITING_FRAME",
 });
+
+const describeModels = (
+  segmentation?: ModelStatus | null,
+  detection?: ModelStatus | null,
+) => `SEG ${segmentation?.mode ?? "UNAVAILABLE"} · DET ${detection?.mode ?? "UNAVAILABLE"}`;
 
 export interface FrameIngestionController {
   metrics: IngestionMetrics;
+  intelligence: LiveResult | null;
   retry: () => void;
 }
 
@@ -68,6 +76,7 @@ export function useFrameIngestion({
   sourceGeneration,
 }: UseFrameIngestionOptions): FrameIngestionController {
   const [metrics, setMetrics] = useState<IngestionMetrics>(initialMetrics);
+  const [intelligence, setIntelligence] = useState<LiveResult | null>(null);
   const [retryGeneration, setRetryGeneration] = useState(0);
   const socketRef = useRef<IngestionSocketConnection | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -78,6 +87,7 @@ export function useFrameIngestion({
   const captureStartedAtRef = useRef<number | null>(null);
   const intentionalCloseRef = useRef(false);
   const captureActiveRef = useRef(captureActive);
+  const latestSequenceRef = useRef(-1);
 
   useEffect(() => {
     captureActiveRef.current = captureActive;
@@ -97,6 +107,7 @@ export function useFrameIngestion({
   useEffect(() => {
     if (!sourceReady || !sourceMode || !mediaOrigin) {
       setMetrics(initialMetrics());
+      setIntelligence(null);
       return;
     }
 
@@ -107,6 +118,8 @@ export function useFrameIngestion({
     inFlightRef.current = false;
     expectedFrameIdRef.current = null;
     captureStartedAtRef.current = null;
+    latestSequenceRef.current = -1;
+    setIntelligence(null);
     setMetrics({
       ...initialMetrics(),
       sourceMode,
@@ -170,7 +183,32 @@ export function useFrameIngestion({
               latestQualityState: result.quality
                 ? `${result.quality.brightness_status} / ${result.quality.sharpness_status}`
                 : result.code,
+              modelStatus: describeModels(
+                result.segmentation_status,
+                result.detection_status,
+              ),
+              analysisStatus: result.inference_state ?? current.analysisStatus,
               lastError: result.accepted ? null : result.message,
+            }));
+          },
+          onIntelligence: (message: FrameIntelligence) => {
+            if (cancelled) return;
+            if (
+              message.session_id !== session.session_id ||
+              message.sequence <= latestSequenceRef.current
+            ) {
+              return;
+            }
+            latestSequenceRef.current = message.sequence;
+            setIntelligence(message.result);
+            setMetrics((current) => ({
+              ...current,
+              latestFrameId: Math.max(current.latestFrameId ?? -1, message.frame_id),
+              modelStatus: describeModels(
+                message.result.system_status.segmentation_details,
+                message.result.system_status.detection_details,
+              ),
+              analysisStatus: message.result.system_status.inference_state ?? "LIVE",
             }));
           },
           onMalformedMessage: () => {
@@ -352,5 +390,9 @@ export function useFrameIngestion({
     };
   }, [captureActive, mediaOrigin, metrics.connectionState, metrics.requestedFps, sourceMode, sourceReady, videoElement]);
 
-  return { metrics, retry: () => setRetryGeneration((value) => value + 1) };
+  return {
+    metrics,
+    intelligence,
+    retry: () => setRetryGeneration((value) => value + 1),
+  };
 }

@@ -1,4 +1,5 @@
-import type { FrameResult } from "../types/ingestion";
+import type { FrameIntelligence, FrameResult } from "../types/ingestion";
+import { parseLiveResult } from "./validation";
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -40,4 +41,17 @@ export function parseFrameResult(value: unknown): FrameResult | null {
     validQuality &&
     value.data_origin === "DERIVED_ANALYTIC";
   return valid ? (value as unknown as FrameResult) : null;
+}
+
+export function parseFrameIntelligence(value: unknown): FrameIntelligence | null {
+  if (!isRecord(value)) return null;
+  const result = parseLiveResult(value.result);
+  const valid =
+    value.type === "frame_intelligence" &&
+    typeof value.session_id === "string" &&
+    isNumber(value.frame_id) &&
+    isNumber(value.sequence) &&
+    result !== null &&
+    result.frame_id === value.frame_id;
+  return valid ? ({ ...value, result } as FrameIntelligence) : null;
 }

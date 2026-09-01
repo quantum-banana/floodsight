@@ -1,4 +1,4 @@
-import type { LiveResult } from "../types/liveResult";
+import type { DataOrigin, LiveResult } from "../types/liveResult";
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -12,6 +12,7 @@ const origins = [
 const severities = ["LOW", "MODERATE", "HIGH", "CRITICAL"] as const;
 const accessStates = ["ACCESSIBLE", "DEGRADED", "BLOCKED", "ISOLATED", "UNKNOWN"] as const;
 const roadStates = ["CLEAR", "FLOODED", "BLOCKED", "UNKNOWN"] as const;
+const modelStates = ["not_configured", "loading", "ready", "unavailable", "error"] as const;
 
 const isRecord = (value: unknown): value is UnknownRecord =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -58,8 +59,8 @@ const isIncident = (value: unknown) =>
 const isSystemStatus = (value: unknown) =>
   isRecord(value) &&
   isOneOf(value.api, ["operational", "degraded", "offline"] as const) &&
-  isOneOf(value.segmentation_model, ["not_configured", "loading", "ready", "error"] as const) &&
-  isOneOf(value.detection_model, ["not_configured", "loading", "ready", "error"] as const);
+  isOneOf(value.segmentation_model, modelStates) &&
+  isOneOf(value.detection_model, modelStates);
 
 const isDetection = (value: unknown) =>
   isRecord(value) &&
@@ -159,8 +160,12 @@ const isRoute = (value: unknown) =>
   isString(value.access_summary) &&
   isOriginRecord(value);
 
-export function parseLiveResult(value: unknown): LiveResult | null {
-  if (!isRecord(value) || value.data_origin !== "DEMO_SIMULATED") return null;
+export function parseLiveResult(
+  value: unknown,
+  expectedOrigin?: DataOrigin,
+): LiveResult | null {
+  if (!isRecord(value) || !isOrigin(value.data_origin)) return null;
+  if (expectedOrigin !== undefined && value.data_origin !== expectedOrigin) return null;
   const valid =
     isString(value.incident_id) &&
     isIncident(value.incident) &&

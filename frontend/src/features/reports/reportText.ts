@@ -1,28 +1,29 @@
-import type { LiveResult } from "../../types/liveResult";
+import type { IncidentReport } from "../../types/api";
 import { formatTimestamp } from "../../utils/format";
 
-export function buildReportText(snapshot: LiveResult): string {
-  const highest = snapshot.zones.find((zone) => zone.zone_id === snapshot.highest_priority_zone_id);
-  const stats = snapshot.statistics;
-  const criticalZones = snapshot.zones.filter((zone) => zone.severity === "CRITICAL").length;
+export function buildReportText(report: IncidentReport): string {
+  const stats = report.statistics;
   return [
     "FLOODSIGHT INCIDENT REPORT",
-    `Incident: ${snapshot.incident_id} — ${snapshot.incident.title}`,
-    `Generated from observation: ${formatTimestamp(snapshot.timestamp_ms)} UTC`,
-    `Data origin: ${snapshot.data_origin}`,
+    `Incident: ${report.incident_id} — ${report.title}`,
+    `Generated: ${formatTimestamp(report.generated_at_ms)} UTC`,
+    `Generated from frame: ${report.generated_from_frame_id ?? "not available"}`,
+    `Data origin: ${report.data_origin}`,
     "",
-    `Incident severity: ${snapshot.incident_severity}`,
-    `Simulated flood coverage: ${stats.flooded_area_percent.value}%`,
+    `Incident severity: ${report.severity}`,
+    `Flood coverage: ${stats.flooded_area_percent.value}%`,
     `People: ${stats.people_detected.value}`,
     `Vehicles: ${stats.vehicles_detected.value}`,
     `Blocked roads: ${stats.blocked_roads.value}`,
     `Damaged buildings: ${stats.damaged_buildings.value}`,
-    `Critical zones: ${criticalZones}`,
-    `Highest priority: ${highest ? `${highest.display_name} — ${highest.priority_score}/100` : "None"}`,
-    `Explanation: ${highest?.primary_reason ?? "No rescue zones supplied."}`,
-    `Relative access: ${snapshot.route?.access_summary ?? "No relative route supplied in this snapshot."}`,
+    `Critical zones: ${report.critical_zone_count}`,
+    `Highest priority: ${report.highest_priority_zone_name ?? "None"}`,
+    `Priority order: ${report.priority_order?.join(", ") || "None"}`,
+    `Reason codes: ${report.reason_codes?.join(", ") || "None"}`,
+    `Explanation: ${report.explanation}`,
+    `Relative access: ${report.access_summary}`,
     "",
     "RESPONSIBLE AI",
-    "FloodSight is decision support. This simulated report requires human review before any operational action.",
+    report.responsible_ai_statement,
   ].join("\n");
 }

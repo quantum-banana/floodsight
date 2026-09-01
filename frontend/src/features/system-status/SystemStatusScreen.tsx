@@ -1,6 +1,7 @@
 import { OriginBadge } from "../../components/OriginBadge";
 import { StatusCard } from "../../components/StatusCard";
 import type { SystemSnapshot } from "../../types/api";
+import type { ModelStatus } from "../../types/liveResult";
 import { IngestionDiagnosticsPanel } from "../diagnostics/IngestionDiagnosticsPanel";
 
 interface SystemStatusScreenProps {
@@ -39,6 +40,16 @@ function ModelIcon() {
 const formatModelState = (state: string) =>
   state === "not_configured" ? "Not configured" : state.replaceAll("_", " ");
 
+const modelTone = (model: ModelStatus): "online" | "pending" | "offline" =>
+  model.status === "ready" ? "online" : model.status === "loading" ? "pending" : "offline";
+
+const modelDetail = (model: ModelStatus) => [
+  model.model ?? "No model loaded",
+  model.version,
+  model.device,
+  model.latency_ms === null ? null : `${model.latency_ms.toFixed(1)} ms`,
+].filter(Boolean).join(" · ");
+
 export function SystemStatusScreen({ snapshot }: SystemStatusScreenProps) {
   const { health, models, sample } = snapshot;
   const stats = sample.statistics;
@@ -73,7 +84,7 @@ export function SystemStatusScreen({ snapshot }: SystemStatusScreenProps) {
           </div>
           <div className="flex items-center gap-3">
             <a href="/" className="command-button command-button-secondary">Command center</a>
-            <span className="hidden text-[0.68rem] font-semibold tracking-[0.18em] text-slate-600 uppercase sm:inline">Diagnostics · Phase 2</span>
+            <span className="hidden text-[0.68rem] font-semibold tracking-[0.18em] text-slate-600 uppercase sm:inline">Application integration diagnostics</span>
             <span className="rounded-full border border-emerald-400/20 bg-emerald-400/[0.08] px-3 py-1.5 text-[0.68rem] font-bold tracking-[0.16em] text-emerald-300 uppercase">System online</span>
           </div>
         </header>
@@ -82,14 +93,14 @@ export function SystemStatusScreen({ snapshot }: SystemStatusScreenProps) {
           <section className="max-w-3xl">
             <p className="text-xs font-bold tracking-[0.24em] text-cyan-400 uppercase">Development readiness</p>
             <h1 className="mt-4 text-3xl font-semibold tracking-[-0.035em] text-white sm:text-4xl lg:text-5xl">Command infrastructure is connected.</h1>
-            <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-400 sm:text-base">The FloodSight interface and API share one validated incident contract. Models and operational analytics stay intentionally offline until their dedicated phases are verified.</p>
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-400 sm:text-base">The interface, API, model adapters, temporal intelligence, rescue-zone scoring, and relative routing share validated contracts. Model availability below reflects the currently resolved local artifacts.</p>
           </section>
 
           <section aria-label="System status" className="mt-9 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <StatusCard label="Frontend" value="Operational" detail="React interface rendered" tone="online" icon={<InterfaceIcon />} />
             <StatusCard label="Backend connection" value="Connected" detail={`${health.service} · v${health.version}`} tone="online" icon={<ApiIcon />} />
-            <StatusCard label="Segmentation model" value={formatModelState(models.segmentation.status)} detail="SegFormer integration is a later phase" tone="pending" icon={<ModelIcon />} />
-            <StatusCard label="Detection model" value={formatModelState(models.detection.status)} detail="YOLO integration is a later phase" tone="pending" icon={<ModelIcon />} />
+            <StatusCard label="Segmentation model" value={`${models.segmentation.mode} · ${formatModelState(models.segmentation.status)}`} detail={modelDetail(models.segmentation)} tone={modelTone(models.segmentation)} icon={<ModelIcon />} />
+            <StatusCard label="Detection model" value={`${models.detection.mode} · ${formatModelState(models.detection.status)}`} detail={modelDetail(models.detection)} tone={modelTone(models.detection)} icon={<ModelIcon />} />
           </section>
 
           <IngestionDiagnosticsPanel />

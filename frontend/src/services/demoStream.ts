@@ -32,7 +32,7 @@ export function openDemoStream(
   socket.addEventListener("close", handlers.onClose);
   socket.addEventListener("message", (event) => {
     try {
-      const snapshot = parseLiveResult(JSON.parse(String(event.data)));
+      const snapshot = parseLiveResult(JSON.parse(String(event.data)), "DEMO_SIMULATED");
       if (!snapshot) {
         handlers.onMalformedMessage();
         return;

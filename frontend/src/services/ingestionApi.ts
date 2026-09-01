@@ -1,4 +1,5 @@
 import { API_BASE_URL, API_TIMEOUT_MS } from "../config/environment";
+import type { IncidentReport } from "../types/api";
 import type { ActualSourceMode, IngestionSession, MediaOrigin } from "../types/ingestion";
 import { ApiError } from "./api";
 
@@ -51,5 +52,12 @@ export function deleteIngestionSession(sessionId: string): Promise<void> {
   return ingestionRequest<void>(
     `/api/ingest/sessions/${encodeURIComponent(sessionId)}`,
     { method: "DELETE", keepalive: true },
+  );
+}
+
+export function getLiveIncidentReport(sessionId: string): Promise<IncidentReport> {
+  return ingestionRequest<IncidentReport>(
+    `/api/ingest/sessions/${encodeURIComponent(sessionId)}/report`,
+    { method: "GET" },
   );
 }

@@ -7,12 +7,14 @@ import type { IncidentMetadata } from "../../types/liveResult";
 interface ApplicationHeaderProps {
   incident: IncidentMetadata;
   connectionState: ConnectionState;
+  connectionLabel?: string;
   onOpenReport: () => void;
 }
 
 export function ApplicationHeader({
   incident,
   connectionState,
+  connectionLabel,
   onOpenReport,
 }: ApplicationHeaderProps) {
   return (
@@ -38,7 +40,7 @@ export function ApplicationHeader({
 
         <div className="flex shrink-0 items-center gap-2">
           <div className="hidden xl:block"><OriginBadge origin={incident.data_origin} compact /></div>
-          <div className="hidden sm:block"><ConnectionIndicator state={connectionState} /></div>
+          <div className="hidden sm:block"><ConnectionIndicator state={connectionState} label={connectionLabel} /></div>
           <button type="button" onClick={onOpenReport} className="command-button command-button-primary" aria-label="Open incident report">
             <Icon name="report" />
             <span className="hidden lg:inline">Incident report</span>

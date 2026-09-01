@@ -8,6 +8,7 @@ import {
   openIngestionSocket,
   type IngestionSocketHandlers,
 } from "../services/ingestionSocket";
+import { liveSnapshot } from "./fixtures";
 
 vi.mock("../services/ingestionApi", () => ({
   createIngestionSession: vi.fn(),
@@ -149,6 +150,23 @@ describe("frame ingestion lifecycle", () => {
     expect(result.current.metrics.acknowledgedFrames).toBe(1);
     expect(result.current.metrics.latestDimensions).toBe("640×360");
     expect(result.current.metrics.latestProcessingMs).toBe(2.5);
+    act(() => handlers?.onIntelligence({
+      type: "frame_intelligence",
+      session_id: session.session_id,
+      frame_id: liveSnapshot.frame_id,
+      sequence: 2,
+      result: liveSnapshot,
+    }));
+    expect(result.current.intelligence).toEqual(liveSnapshot);
+    expect(result.current.metrics.analysisStatus).toBe("LIVE");
+    act(() => handlers?.onIntelligence({
+      type: "frame_intelligence",
+      session_id: session.session_id,
+      frame_id: 1,
+      sequence: 1,
+      result: { ...liveSnapshot, frame_id: 1 },
+    }));
+    expect(result.current.intelligence?.frame_id).toBe(liveSnapshot.frame_id);
     act(() => handlers?.onMalformedMessage());
     expect(result.current.metrics.connectionState).toBe("malformed");
     expect(result.current.metrics.lastError).toMatch(/malformed acknowledgement/i);

@@ -16,6 +16,9 @@ const severityStyle = {
 };
 
 export function PriorityCard({ zone, selected, onSelect }: PriorityCardProps) {
+  const damageValue = zone.building_damage_count > 0
+    ? zone.building_damage_count
+    : `${zone.building_damage_coverage_percent ?? 0}%`;
   return (
     <article className={`priority-card border-l-2 ${severityStyle[zone.severity]} ${selected ? "priority-card-selected" : ""}`} data-zone-id={zone.zone_id}>
       <div className="flex items-start gap-3">
@@ -29,7 +32,7 @@ export function PriorityCard({ zone, selected, onSelect }: PriorityCardProps) {
           <div className="mt-3 grid grid-cols-4 gap-1.5 text-center">
             <MiniStat label="People" value={zone.people_count} />
             <MiniStat label="Flood" value={`${zone.flood_coverage_percent}%`} />
-            <MiniStat label="Damage" value={zone.building_damage_count} />
+            <MiniStat label={zone.building_damage_count > 0 ? "Buildings" : "Damage cov."} value={damageValue} />
             <MiniStat label="Confidence" value={formatConfidence(zone.confidence)} />
           </div>
           <div className="mt-3 flex items-center justify-between gap-2 border-t border-white/[0.05] pt-3">

@@ -41,7 +41,7 @@ describe("FloodSight system diagnostics", () => {
     vi.mocked(getSystemSnapshot).mockResolvedValue(diagnosticsSnapshot);
   });
 
-  it("preserves the Phase 0 API and model readiness diagnostics", async () => {
+  it("shows API, model, and ingestion/inference readiness diagnostics", async () => {
     render(<App />);
 
     expect(screen.getByLabelText("Connecting to FloodSight backend")).toBeInTheDocument();
@@ -50,10 +50,10 @@ describe("FloodSight system diagnostics", () => {
       "DEMO_SIMULATED",
     );
     expect(screen.getByLabelText("Backend connection: Connected")).toBeInTheDocument();
-    expect(screen.getByLabelText("Segmentation model: Not configured")).toBeInTheDocument();
-    expect(screen.getByLabelText("Detection model: Not configured")).toBeInTheDocument();
+    expect(screen.getByLabelText("Segmentation model: UNAVAILABLE · Not configured")).toBeInTheDocument();
+    expect(screen.getByLabelText("Detection model: UNAVAILABLE · Not configured")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Command center" })).toHaveAttribute("href", "/");
-    expect(screen.getByRole("heading", { name: "Frame ingestion diagnostics" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Ingestion and inference diagnostics" })).toBeInTheDocument();
     expect(screen.getByText("1280×720")).toBeInTheDocument();
     expect(screen.getByText("USER_VIDEO_FILE")).toBeInTheDocument();
     expect(screen.getAllByText("NOT_CONFIGURED").length).toBeGreaterThan(0);

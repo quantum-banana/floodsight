@@ -31,16 +31,16 @@ export function IngestionDiagnosticsPanel() {
     : [
         ["Source mode", "INACTIVE"],
         ["Connection", "IDLE"],
-        ["Models", "NOT_CONFIGURED"],
-        ["Analysis", "DEMO_SIMULATED"],
+        ["Models", "UNAVAILABLE"],
+        ["Analysis", "AWAITING_FRAME"],
       ];
 
   return (
     <section className="mt-6 overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0c1820]/85" aria-labelledby="ingestion-diagnostics-heading">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.07] px-5 py-4 sm:px-6">
         <div>
-          <p className="text-[0.68rem] font-semibold tracking-[0.2em] text-cyan-400 uppercase">Phase 2 transport</p>
-          <h2 id="ingestion-diagnostics-heading" className="mt-1 text-lg font-semibold text-white">Frame ingestion diagnostics</h2>
+          <p className="text-[0.68rem] font-semibold tracking-[0.2em] text-cyan-400 uppercase">Live application pipeline</p>
+          <h2 id="ingestion-diagnostics-heading" className="mt-1 text-lg font-semibold text-white">Ingestion and inference diagnostics</h2>
         </div>
         <span className="media-origin-badge">DERIVED_ANALYTIC</span>
       </div>
@@ -53,7 +53,7 @@ export function IngestionDiagnosticsPanel() {
         ))}
       </div>
       <div className="border-t border-amber-300/10 bg-amber-300/[0.025] px-5 py-3 text-xs text-slate-500 sm:px-6">
-        Metrics contain no raw frame bytes. Frame quality is derived from decoded media; incident analysis remains DEMO_SIMULATED.
+        Metrics contain no raw frame bytes. Frame quality is derived from decoded media; analysis status and model provenance are supplied by the backend.
       </div>
     </section>
   );

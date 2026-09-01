@@ -2,6 +2,7 @@ import type { ConnectionState } from "../hooks/useDemoIncident";
 
 interface ConnectionIndicatorProps {
   state: ConnectionState;
+  label?: string;
 }
 
 const labels: Record<ConnectionState, string> = {
@@ -16,7 +17,7 @@ const labels: Record<ConnectionState, string> = {
   disconnected: "Disconnected",
 };
 
-export function ConnectionIndicator({ state }: ConnectionIndicatorProps) {
+export function ConnectionIndicator({ state, label }: ConnectionIndicatorProps) {
   const healthy = state === "connected" || state === "complete";
   const waiting = state === "connecting" || state === "reconnecting" || state === "loading";
   const tone = healthy ? "emerald" : waiting || state === "paused" ? "amber" : "rose";
@@ -34,14 +35,14 @@ export function ConnectionIndicator({ state }: ConnectionIndicatorProps) {
   return (
     <span
       role="status"
-      aria-label={`Stream connection: ${labels[state]}`}
+      aria-label={`Stream connection: ${label ?? labels[state]}`}
       className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[0.66rem] font-semibold tracking-[0.12em] uppercase ${toneClasses}`}
     >
       <span
         aria-hidden="true"
         className={`h-1.5 w-1.5 rounded-full ${dotClasses} ${waiting ? "animate-pulse" : ""}`}
       />
-      {labels[state]}
+      {label ?? labels[state]}
     </span>
   );
 }

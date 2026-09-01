@@ -196,6 +196,96 @@ export const reorderedSnapshot: LiveResult = {
   ],
 };
 
+const readyModel = (model: string, mode: "REAL" | "FALLBACK") => ({
+  status: "ready" as const,
+  model,
+  mode,
+  version: "integration-test",
+  device: "cuda:0",
+  latency_ms: 12.5,
+  last_successful_inference_ms: 1_725_000_005_000,
+  provenance_mode: mode === "REAL" ? "LOCAL_CHECKPOINT" : "PRETRAINED_FALLBACK",
+  message: null,
+});
+
+export const liveSnapshot: LiveResult = {
+  ...commandSnapshot,
+  incident_id: "LIVE-frame-session",
+  incident: {
+    incident_id: "LIVE-frame-session",
+    title: "Live Frame Intelligence",
+    location_label: "Normalized image-space assessment",
+    started_at_ms: 1_725_000_005_000,
+    coordinate_space: "NORMALIZED_IMAGE",
+    data_origin: "DERIVED_ANALYTIC",
+  },
+  source_mode: "VIDEO_FILE",
+  coordinate_space: "NORMALIZED_IMAGE",
+  data_origin: "DERIVED_ANALYTIC",
+  stream_state: "PLAYING",
+  source_dimensions: { width: 1280, height: 720 },
+  evidence_frames: {
+    segmentation_source_frame_id: 5,
+    detection_source_frame_id: 5,
+    segmentation_reused: false,
+    detection_reused: false,
+  },
+  statistics: {
+    ...commandSnapshot.statistics,
+    flooded_area_percent: {
+      ...commandSnapshot.statistics.flooded_area_percent,
+      value: 38,
+      data_origin: "DERIVED_ANALYTIC",
+    },
+  },
+  system_status: {
+    api: "operational",
+    segmentation_model: "ready",
+    detection_model: "ready",
+    inference_state: "LIVE",
+    segmentation_details: readyModel("segformer-b2-floodsight", "REAL"),
+    detection_details: readyModel("yolo11-pretrained-fallback", "FALLBACK"),
+  },
+  detections: commandSnapshot.detections.map((detection) => ({
+    ...detection,
+    data_origin: "REAL_ML_OUTPUT",
+    source_class: detection.category === "PERSON" ? "person" : "car",
+    model_id: "yolo11-pretrained-fallback",
+  })),
+  segmentation: {
+    status: "ready",
+    classes: [
+      { class_id: 1, label: "water", coverage_percent: 38, confidence: 0.9, data_origin: "REAL_ML_OUTPUT", color: [14, 165, 233] },
+      { class_id: 9, label: "pool", coverage_percent: 4, confidence: 0.88, data_origin: "REAL_ML_OUTPUT", color: [168, 85, 247] },
+    ],
+    regions: [],
+    mask: { encoding: "PNG_BASE64", width: 2, height: 2, data: "iVBORw0KGgo=" },
+  },
+  roads: commandSnapshot.roads.map((road) => ({ ...road, data_origin: "DERIVED_ANALYTIC" })),
+  zones: commandSnapshot.zones.map((zone) => ({
+    ...zone,
+    data_origin: "DERIVED_ANALYTIC",
+    grid_cells: ["B2"],
+    building_damage_coverage_percent: 8,
+    pool_coverage_percent: 0,
+    temporal_samples: 3,
+    stale: false,
+  })),
+  events: commandSnapshot.events.map((event) => ({ ...event, data_origin: "DERIVED_ANALYTIC" })),
+  route: commandSnapshot.route && { ...commandSnapshot.route, data_origin: "DERIVED_ANALYTIC", edge_ids: ["E-B2-B3"], route_cost: 2.4 },
+  route_alternatives: [],
+  scene_summary: {
+    water_flood_coverage_percent: 38,
+    pool_coverage_percent: 4,
+    road_clear_coverage_percent: 12,
+    road_flooded_coverage_percent: 6,
+    road_blocked_coverage_percent: 2,
+    building_damage_coverage_percent: 8,
+    provenance: ["SEGMENTATION", "DETECTION", "DERIVED"],
+    data_origin: "DERIVED_ANALYTIC",
+  },
+};
+
 export const incidentDetail: IncidentDetailResponse = {
   incident: commandSnapshot.incident,
   severity: "CRITICAL",
@@ -208,8 +298,29 @@ export const incidentDetail: IncidentDetailResponse = {
 export const diagnosticsSnapshot: SystemSnapshot = {
   health: { status: "ok", service: "floodsight-api", version: "0.1.0" },
   models: {
-    segmentation: { status: "not_configured", model: null },
-    detection: { status: "not_configured", model: null },
+    segmentation: {
+      status: "not_configured",
+      model: null,
+      mode: "UNAVAILABLE",
+      version: null,
+      device: null,
+      latency_ms: null,
+      last_successful_inference_ms: null,
+      provenance_mode: null,
+      message: "No segmentation model loaded.",
+    },
+    detection: {
+      status: "not_configured",
+      model: null,
+      mode: "UNAVAILABLE",
+      version: null,
+      device: null,
+      latency_ms: null,
+      last_successful_inference_ms: null,
+      provenance_mode: null,
+      message: "No detection model loaded.",
+    },
+    inference_state: "MODEL_UNAVAILABLE",
   },
   sample: commandSnapshot,
 };

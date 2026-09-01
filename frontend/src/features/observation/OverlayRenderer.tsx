@@ -7,6 +7,9 @@ interface OverlayRendererProps {
   layers: LayerState;
   selectedZoneId: string | null;
   onSelectZone: (zoneId: string) => void;
+  showBase?: boolean;
+  segmentationOpacity?: number;
+  simulated?: boolean;
 }
 
 const roadColor = (state: string) => {
@@ -27,16 +30,24 @@ export function OverlayRenderer({
   layers,
   selectedZoneId,
   onSelectZone,
+  showBase = true,
+  segmentationOpacity = 0.42,
+  simulated = true,
 }: OverlayRendererProps) {
+  const mask = snapshot.segmentation.mask;
+  const dimensions = snapshot.source_dimensions;
+  const viewportHeight = !showBase && dimensions
+    ? 100 * dimensions.height / dimensions.width
+    : 100;
   return (
     <svg
-      viewBox="0 0 100 100"
-      preserveAspectRatio="none"
+      viewBox={`0 0 100 ${viewportHeight}`}
+      preserveAspectRatio={showBase ? "none" : "xMidYMid meet"}
       className="absolute inset-0 h-full w-full"
       role="img"
-      aria-label="Normalized simulated flood observation with tactical overlays"
+      aria-label={`Normalized ${simulated ? "simulated" : "model-derived"} flood observation with tactical overlays`}
     >
-      <title>Simulated sensor overlay for {snapshot.incident.title}</title>
+      <title>{simulated ? "Simulated" : "Model-derived"} sensor overlay for {snapshot.incident.title}</title>
       <defs>
         <pattern id="blocked-hatch" width="3" height="3" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
           <line x1="0" y1="0" x2="0" y2="3" stroke="#fecdd3" strokeWidth="0.8" />
@@ -44,7 +55,9 @@ export function OverlayRenderer({
         <filter id="zone-glow"><feGaussianBlur stdDeviation="0.65" result="blur" /><feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
       </defs>
 
-      <g className="scene-base" opacity="0.72">
+      <g transform={`scale(1 ${viewportHeight / 100})`}>
+
+      {showBase && <g className="scene-base" opacity="0.72">
         <path d="M0 0H100V100H0Z" fill="#0b1820" />
         <path d="M0 18 22 8l19 14 17-11 20 10 22-8v34L80 56 58 48 34 60 12 48 0 53Z" fill="#10262b" />
         <g fill="#193139" stroke="#274650" strokeWidth="0.25">
@@ -54,7 +67,19 @@ export function OverlayRenderer({
           <rect x="30" y="36" width="9" height="8" rx="1" /><rect x="75" y="43" width="10" height="8" rx="1" />
           <rect x="12" y="64" width="8" height="8" rx="1" /><rect x="83" y="70" width="9" height="9" rx="1" />
         </g>
-      </g>
+      </g>}
+
+      {layers.flood && mask && (
+        <image
+          href={`data:image/png;base64,${mask.data}`}
+          x="0"
+          y="0"
+          width="100"
+          height="100"
+          preserveAspectRatio="none"
+          opacity={segmentationOpacity}
+        />
+      )}
 
       {layers.flood && (
         <g>
@@ -106,6 +131,7 @@ export function OverlayRenderer({
           </g>
         );
       })}
+      </g>
     </svg>
   );
 }

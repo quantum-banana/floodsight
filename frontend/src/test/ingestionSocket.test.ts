@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { openIngestionSocket } from "../services/ingestionSocket";
 import type { FrameMetadata } from "../types/ingestion";
+import { liveSnapshot } from "./fixtures";
 
 type Listener = (event: Event | MessageEvent | CloseEvent) => void;
 
@@ -43,10 +44,12 @@ describe("frame WebSocket client", () => {
   it("sends metadata then binary and validates acknowledgements", () => {
     globalThis.WebSocket = FakeWebSocket as unknown as typeof WebSocket;
     const onResult = vi.fn();
+    const onIntelligence = vi.fn();
     const onMalformedMessage = vi.fn();
     const connection = openIngestionSocket("session-123", {
       onOpen: vi.fn(),
       onResult,
+      onIntelligence,
       onMalformedMessage,
       onError: vi.fn(),
       onClose: vi.fn(),
@@ -84,9 +87,19 @@ describe("frame WebSocket client", () => {
         data_origin: "DERIVED_ANALYTIC",
       }),
     }));
+    FakeWebSocket.latest?.emit("message", new MessageEvent("message", {
+      data: JSON.stringify({
+        type: "frame_intelligence",
+        session_id: "session-123",
+        frame_id: liveSnapshot.frame_id,
+        sequence: 1,
+        result: liveSnapshot,
+      }),
+    }));
     FakeWebSocket.latest?.emit("message", new MessageEvent("message", { data: "broken" }));
 
     expect(onResult).toHaveBeenCalledOnce();
+    expect(onIntelligence).toHaveBeenCalledWith(expect.objectContaining({ sequence: 1 }));
     expect(onMalformedMessage).toHaveBeenCalledOnce();
     expect(FakeWebSocket.latest?.url).toContain("/ws/ingest/sessions/session-123/frames");
     connection.close();
