@@ -1,0 +1,7 @@
+# Accepted FloodSight CPython 3.12.3 / Linux x86_64 / CUDA 13.0 wheelhouse.
+# The wheelhouse itself remains external to Git.
+wheelhouse_path=/data/floodsight-workspace/floodsight-cache/ml/wheelhouse/py312-cu130-v1
+sha256sums_sha256=9aecbec255b984e56544d6f4bcb83f18b0f1c34979afcdd62629b08a80c2c6e2
+inventory_sha256=f84c8782fa0032bbbf761566dd678c25dfbc3bba58f15d515ac61f952337421a
+resolved_lock_sha256=33e7ca74a272659827d10c3bc882de1aa6e39b871c36435eb52279bd88eb58e1
+wheel_count=103

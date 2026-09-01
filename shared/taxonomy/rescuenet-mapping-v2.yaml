@@ -1,0 +1,18 @@
+dataset_id: rescuenet
+task_type: SEMANTIC_SEGMENTATION
+mapping_version: rescuenet-mapping-v2
+taxonomy_version: segmentation-taxonomy-v2
+real_data_review_required: true
+source_id_basis: "Official RescueNet 2023 Figshare descriptor and exhaustive observed 0-10 mask audit. Damage and blockage semantics remain distinct from FloodNet flood-status labels."
+mappings:
+  - {source_id: 0, source_name: background, target_id: 0, target_name: background_other, action: MAP, explanation: "Background and unmodelled scene content.", source_support: official-2023-schema, review_status: SOURCE_FILE_CONFIRMED, colors: [[0, 0, 0]]}
+  - {source_id: 1, source_name: water, target_id: 1, target_name: water, action: MAP, explanation: "Direct water support.", source_support: official-2023-schema, review_status: SOURCE_FILE_CONFIRMED, colors: [[61, 230, 250], [0, 0, 255]]}
+  - {source_id: 2, source_name: building_no_damage, target_id: 8, target_name: building_no_damage, action: MAP, explanation: "No-damage status is distinct from FloodNet non-flooded status.", source_support: official-2023-schema, review_status: SOURCE_FILE_CONFIRMED, colors: [[180, 120, 120]]}
+  - {source_id: 3, source_name: building_minor_damage, target_id: 9, target_name: building_minor_damage, action: MAP, explanation: "Direct minor-damage support.", source_support: official-2023-schema, review_status: SOURCE_FILE_CONFIRMED, colors: [[235, 255, 7]]}
+  - {source_id: 4, source_name: building_major_damage, target_id: 10, target_name: building_major_damage, action: MAP, explanation: "Direct major-damage support.", source_support: official-2023-schema, review_status: SOURCE_FILE_CONFIRMED, colors: [[255, 184, 6]]}
+  - {source_id: 5, source_name: building_total_destruction, target_id: 11, target_name: building_destroyed, action: MAP, explanation: "Total destruction maps to the equivalent destroyed target.", source_support: official-2023-schema, review_status: SOURCE_FILE_CONFIRMED, colors: [[255, 0, 0]]}
+  - {source_id: 6, source_name: vehicle, target_id: 12, target_name: vehicle, action: MAP, explanation: "Direct semantic vehicle support.", source_support: official-2023-schema, review_status: SOURCE_FILE_CONFIRMED, colors: [[255, 0, 245], [255, 0, 255]]}
+  - {source_id: 7, source_name: road_clear, target_id: 4, target_name: road_clear, action: MAP, explanation: "Clear/unblocked status remains distinct from FloodNet non-flooded status.", source_support: official-2023-schema, review_status: SOURCE_FILE_CONFIRMED, colors: [[140, 140, 140]]}
+  - {source_id: 8, source_name: road_blocked, target_id: 5, target_name: road_blocked, action: MAP, explanation: "Direct physical/blockage support.", source_support: official-2023-schema, review_status: SOURCE_FILE_CONFIRMED, colors: [[160, 150, 20]]}
+  - {source_id: 9, source_name: tree, target_id: 13, target_name: tree, action: MAP, explanation: "Tree remains an exact shared class and is not broadened to grass.", source_support: official-2023-schema, review_status: SOURCE_FILE_CONFIRMED, colors: [[0, 255, 0]]}
+  - {source_id: 10, source_name: pool, target_id: 15, target_name: pool, action: MAP, explanation: "Pool is preserved and never used as flood-water evidence.", source_support: official-2023-schema, review_status: SOURCE_FILE_CONFIRMED, colors: [[0, 255, 255]]}

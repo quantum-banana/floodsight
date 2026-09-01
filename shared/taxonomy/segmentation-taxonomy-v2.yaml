@@ -1,0 +1,20 @@
+version: segmentation-taxonomy-v2
+ignore_index: 255
+status: TECHNICALLY_FROZEN_HUMAN_SIGNOFF_REQUIRED
+classes:
+  - {id: 0, name: background_other, color: [30, 34, 40]}
+  - {id: 1, name: water, color: [44, 151, 255]}
+  - {id: 2, name: road_non_flooded, color: [120, 120, 120]}
+  - {id: 3, name: road_flooded, color: [26, 113, 196]}
+  - {id: 4, name: road_clear, color: [88, 201, 138]}
+  - {id: 5, name: road_blocked, color: [230, 91, 73]}
+  - {id: 6, name: building_non_flooded, color: [170, 180, 195]}
+  - {id: 7, name: building_flooded, color: [91, 128, 255]}
+  - {id: 8, name: building_no_damage, color: [210, 215, 225]}
+  - {id: 9, name: building_minor_damage, color: [250, 210, 75]}
+  - {id: 10, name: building_major_damage, color: [248, 145, 54]}
+  - {id: 11, name: building_destroyed, color: [215, 54, 77]}
+  - {id: 12, name: vehicle, color: [192, 103, 255]}
+  - {id: 13, name: tree, color: [45, 155, 76]}
+  - {id: 14, name: grass, color: [116, 198, 73]}
+  - {id: 15, name: pool, color: [49, 220, 220]}

@@ -1,0 +1,17 @@
+# FloodSight Phase 4/5 training environment.
+# Keep this separate from ml/pyproject.toml, which remains Phase-3 dataset-only.
+transformers==5.15.1
+accelerate==1.12.0
+timm==1.0.23
+ultralytics==8.3.222
+
+numpy==2.2.6
+Pillow==12.3.0
+PyYAML==6.0.3
+opencv-python==4.12.0.88
+safetensors==0.8.0
+tensorboard==2.20.0
+
+pytest==9.1.1
+pip-audit==2.10.1
+ruff==0.16.4

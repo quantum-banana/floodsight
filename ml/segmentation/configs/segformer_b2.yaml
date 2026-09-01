@@ -1,0 +1,134 @@
+schema_version: segmentation-training-v2
+frozen: true
+
+taxonomy_assets:
+  taxonomy_path: /data/floodsight-workspace/floodsight/shared/taxonomy/segmentation-taxonomy-v2.yaml
+  taxonomy_sha256: 2e10de69f9920aa113ae65c77b275ca506ed27ea7369bd8c9067bd899eca9ccf
+  mappings:
+    floodnet:
+      path: /data/floodsight-workspace/floodsight/shared/taxonomy/floodnet-mapping-v2.yaml
+      sha256: fdfbbba84c1cf8ea0176429b8d236693030abc16452f507c94922cc2f0769760
+    rescuenet:
+      path: /data/floodsight-workspace/floodsight/shared/taxonomy/rescuenet-mapping-v2.yaml
+      sha256: cca60ac9977f7c7c70d290231561d127f2b8350a2a1cc82d9fb851e9f800dd28
+
+model:
+  pretrained_model_name_or_path: nvidia/segformer-b2-finetuned-ade-512-512
+  revision: de01bae28967510f9ddd496c60a969357195400c
+  local_files_only: true
+  trust_remote_code: false
+  weights_format: safetensors
+  upstream_pytorch_model_sha256: 187ca07bea003a5717c63d04ea90b07f33cd033c0ebf44b4b89fce5070d6c8f3
+  safetensors_path: /data/floodsight-workspace/floodsight-cache/ml/models/segformer-b2-ade512/de01bae28967510f9ddd496c60a969357195400c/safetensors/model.safetensors
+  safetensors_sha256: 4a7ab8f05afe62dfdd75338b7fc2eb10ad1347bf5ade78ca2109951f5c717b86
+  provenance_path: /data/floodsight-workspace/floodsight-cache/ml/models/segformer-b2-ade512/de01bae28967510f9ddd496c60a969357195400c/safetensors/provenance.json
+  provenance_sha256: 197a2a29f580406fc7d606445ffcba93bcf5d76dde3d4be6e2391c23a0a27add
+  num_labels: 16
+  class_names:
+    - background_other
+    - water
+    - road_non_flooded
+    - road_flooded
+    - road_clear
+    - road_blocked
+    - building_non_flooded
+    - building_flooded
+    - building_no_damage
+    - building_minor_damage
+    - building_major_damage
+    - building_destroyed
+    - vehicle
+    - tree
+    - grass
+    - pool
+
+data:
+  taxonomy_version: segmentation-taxonomy-v2
+  manifest_fingerprint_algorithm: sha256-canonical-manifest-identity-v1
+  ignore_index: 255
+  allowed_datasets: [floodnet, rescuenet]
+  supported_class_ids:
+    # Unsupported classes are removed from each sample's softmax denominator.
+    floodnet: [0, 1, 2, 3, 6, 7, 12, 13, 14, 15]
+    rescuenet: [0, 1, 4, 5, 8, 9, 10, 11, 12, 13, 15]
+  train_splits: [train]
+  validation_splits: [val]
+  require_full_integrity: true
+  verify_sample_hashes: true
+
+loss:
+  name: dataset_masked_weighted_cross_entropy
+  class_weight_policy: fixed_explicit
+  normalization: sum_valid_pixel_weights
+  class_weight_source_path: /data/floodsight-workspace/floodsight-datasets/reports/pretraining_gate/segmentation_stages09_10_20260831T131322Z_v1/stage10/stage10_post_sanitation_class_balance_and_weights.json
+  class_weight_source_sha256: 1cfcdacdb1f08254170c3aeba458cb4aa85cd3d663bd4d220ef9fb8354733869
+  # Frozen from Stage 10 retained-training pixels using capped inverse square root frequency.
+  class_weights: [0.25, 0.393489627669, 1.002582787879, 1.194090320344, 0.491677030293, 1.028437432792, 1.202818025361, 1.512492458798, 0.795489806735, 0.79946331758, 0.997437070651, 1.079834182931, 2.04400435097, 0.25, 0.31241852671, 3.548595849419]
+
+sampler:
+  name: dataset_balanced_weighted_random
+  replacement: true
+  num_samples_policy: training_manifest_size
+  dataset_mix:
+    floodnet: 0.5
+    rescuenet: 0.5
+
+output:
+  run_root: /data/floodsight-workspace/floodsight-datasets/runs/segmentation
+  real_smoke_root: /data/floodsight-workspace/floodsight-datasets/runs/segmentation-real-smoke
+  new_run_policy: exclusive_direct_child
+  resume_policy: approved_run_last_only
+  last_checkpoint_filename: last.pt
+  best_checkpoint_filename: best.pt
+  history_filename: history.json
+  report_filename: training-report.json
+
+transforms:
+  height: 1024
+  width: 1024
+  # Fraction of source-image area sampled by RandomResizedCrop; values above
+  # 1.0 are geometrically impossible and would bias toward its fallback crop.
+  train_scale: [0.5, 1.0]
+  train_ratio: [0.75, 1.3333333333333333]
+  horizontal_flip_probability: 0.5
+  image_mean: [0.485, 0.456, 0.406]
+  image_std: [0.229, 0.224, 0.225]
+
+optimizer:
+  name: adamw
+  learning_rate: 0.00006
+  weight_decay: 0.01
+  betas: [0.9, 0.999]
+  epsilon: 0.00000001
+  amsgrad: false
+  maximize: false
+  foreach: false
+  capturable: false
+  differentiable: false
+  fused: false
+  decoder_learning_rate_multiplier: 10.0
+
+scheduler:
+  name: warmup_polynomial
+  warmup_ratio: 0.05
+  power: 1.0
+
+training:
+  epochs: 60
+  # Single-H100 baseline: 4 images/device, effective batch 16 after accumulation.
+  batch_size: 4
+  gradient_accumulation_steps: 4
+  # /dev/shm is 64 MiB; an exact batch is ~80 MiB before IPC overhead.
+  # In-process loading avoids multiprocessing shared-memory bus errors.
+  num_workers: 0
+  precision: bf16
+  gradient_clip_norm: 1.0
+  validate_every_epochs: 1
+  checkpoint_every_epochs: 1
+  monitor_metric: mean_iou
+  maximize_metric: true
+
+reproducibility:
+  seed: 42
+  deterministic_algorithms: true
+  cudnn_benchmark: false

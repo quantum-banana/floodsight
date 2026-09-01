@@ -1,0 +1,21 @@
+{
+  "settings_version": "0.0.6",
+  "datasets_dir": "/data/floodsight-workspace/floodsight-cache/ml/runtime/locked-v1/datasets",
+  "weights_dir": "/data/floodsight-workspace/floodsight-cache/ml/runtime-assets/ultralytics-v8.3.222-v1",
+  "runs_dir": "/data/floodsight-workspace/floodsight-cache/ml/runtime/locked-v1/runs",
+  "uuid": "0000000000000000000000000000000000000000000000000000000000000000",
+  "sync": false,
+  "api_key": "",
+  "openai_api_key": "",
+  "clearml": false,
+  "comet": false,
+  "dvc": false,
+  "hub": false,
+  "mlflow": false,
+  "neptune": false,
+  "raytune": false,
+  "tensorboard": false,
+  "wandb": false,
+  "vscode_msg": false,
+  "openvino_msg": false
+}

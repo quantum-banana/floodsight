@@ -10,6 +10,7 @@ backend/.env
 # Python
 .venv/
 .venv-datasets/
+.venv-training/
 venv/
 env/
 __pycache__/

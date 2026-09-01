@@ -1,0 +1,4 @@
+# Canonical PyPI versions corresponding to local-version CUDA wheel pins.
+# This file is for vulnerability lookup only; do not install it.
+torch==2.13.0
+torchvision==0.28.0

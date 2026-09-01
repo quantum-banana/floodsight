@@ -1,0 +1,18 @@
+{
+  "schema_version": "floodsight-ultralytics-runtime-assets-v1",
+  "ultralytics_version": "8.3.222",
+  "assets": [
+    {
+      "filename": "Arial.ttf",
+      "purpose": "offline plot font",
+      "source_url": "https://github.com/ultralytics/assets/releases/download/v0.0.0/Arial.ttf",
+      "sha256": "525979822591a3447cfc49d943d6f7683508e25543407871c0ed8fed05fd2bd9"
+    },
+    {
+      "filename": "yolo11n.pt",
+      "purpose": "offline Ultralytics AMP compatibility self-check only",
+      "source_url": "https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11n.pt",
+      "sha256": "0ebbc80d4a7680d14987a577cd21342b65ecfd94632bd9a8da63ae6417644ee1"
+    }
+  ]
+}

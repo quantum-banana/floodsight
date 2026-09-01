@@ -1,0 +1,17 @@
+dataset_id: floodnet
+task_type: SEMANTIC_SEGMENTATION
+mapping_version: floodnet-mapping-v2
+taxonomy_version: segmentation-taxonomy-v2
+real_data_review_required: true
+source_id_basis: "FloodNet-Supervised_v1.0 indexed masks and bundled ColorMasks-FloodNetv1.0/ColorPalette-Values.xlsx workbook. Semantically distinct flood, damage, vegetation, and pool labels are not collapsed."
+mappings:
+  - {source_id: 0, source_name: background, target_id: 0, target_name: background_other, action: MAP, explanation: "Background and unmodelled scene content.", source_support: bundled-palette-workbook, review_status: SOURCE_FILE_CONFIRMED, colors: [[0, 0, 0]]}
+  - {source_id: 1, source_name: building_flooded, target_id: 7, target_name: building_flooded, action: MAP, explanation: "Flood status is distinct from RescueNet damage status.", source_support: bundled-palette-workbook, review_status: SOURCE_FILE_CONFIRMED, colors: [[255, 0, 0]]}
+  - {source_id: 2, source_name: building_non_flooded, target_id: 6, target_name: building_non_flooded, action: MAP, explanation: "Non-flooded does not imply no physical damage.", source_support: bundled-palette-workbook, review_status: SOURCE_FILE_CONFIRMED, colors: [[180, 120, 120]]}
+  - {source_id: 3, source_name: road_flooded, target_id: 3, target_name: road_flooded, action: MAP, explanation: "Flood status is distinct from RescueNet blockage status.", source_support: bundled-palette-workbook, review_status: SOURCE_FILE_CONFIRMED, colors: [[160, 150, 20]]}
+  - {source_id: 4, source_name: road_non_flooded, target_id: 2, target_name: road_non_flooded, action: MAP, explanation: "Non-flooded does not guarantee operationally clear or unblocked.", source_support: bundled-palette-workbook, review_status: SOURCE_FILE_CONFIRMED, colors: [[140, 140, 140]]}
+  - {source_id: 5, source_name: water, target_id: 1, target_name: water, action: MAP, explanation: "Direct water support.", source_support: bundled-palette-workbook, review_status: SOURCE_FILE_CONFIRMED, colors: [[61, 230, 250]]}
+  - {source_id: 6, source_name: tree, target_id: 13, target_name: tree, action: MAP, explanation: "Tree remains distinct from grass.", source_support: bundled-palette-workbook, review_status: SOURCE_FILE_CONFIRMED, colors: [[0, 82, 255]]}
+  - {source_id: 7, source_name: vehicle, target_id: 12, target_name: vehicle, action: MAP, explanation: "Direct semantic vehicle support.", source_support: bundled-palette-workbook, review_status: SOURCE_FILE_CONFIRMED, colors: [[255, 0, 245]]}
+  - {source_id: 8, source_name: pool, target_id: 15, target_name: pool, action: MAP, explanation: "Pool is preserved and never used as flood-water evidence.", source_support: bundled-palette-workbook, review_status: SOURCE_FILE_CONFIRMED, colors: [[255, 235, 0]]}
+  - {source_id: 9, source_name: grass, target_id: 14, target_name: grass, action: MAP, explanation: "Grass remains distinct because RescueNet annotates tree, not a broad vegetation superclass.", source_support: bundled-palette-workbook, review_status: SOURCE_FILE_CONFIRMED, colors: [[4, 250, 7]]}
