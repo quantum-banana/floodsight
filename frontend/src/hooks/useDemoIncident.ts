@@ -31,7 +31,7 @@ interface DemoIncidentState {
 const INCIDENT_ID = "FS-001";
 const MAX_RECONNECT_ATTEMPTS = 3;
 
-export function useDemoIncident(): DemoIncidentState {
+export function useDemoIncident(enabled = true): DemoIncidentState {
   const [detail, setDetail] = useState<IncidentDetailResponse | null>(null);
   const [snapshot, setSnapshot] = useState<LiveResult | null>(null);
   const [connectionState, setConnectionState] = useState<ConnectionState>("loading");
@@ -151,6 +151,13 @@ export function useDemoIncident(): DemoIncidentState {
 
   useEffect(() => {
     mountedRef.current = true;
+    if (!enabled) {
+      return () => {
+        mountedRef.current = false;
+        clearReconnectTimer();
+        closeCurrent();
+      };
+    }
     const loadTimer = window.setTimeout(() => void loadIncident(), 0);
     return () => {
       mountedRef.current = false;
@@ -158,7 +165,7 @@ export function useDemoIncident(): DemoIncidentState {
       clearReconnectTimer();
       closeCurrent();
     };
-  }, [clearReconnectTimer, closeCurrent, loadIncident]);
+  }, [clearReconnectTimer, closeCurrent, enabled, loadIncident]);
 
   const start = useCallback(() => {
     currentIndexRef.current = 0;

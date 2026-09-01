@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react";
 import { Icon } from "../../components/Icon";
 import { OriginBadge } from "../../components/OriginBadge";
 import type { Zone } from "../../types/liveResult";
-import { formatConfidence, formatTimestamp } from "../../utils/format";
+import { formatConfidence, formatPercent, formatTimestamp } from "../../utils/format";
 
 interface ZoneDetailsDrawerProps {
   zone: Zone | null;
@@ -65,7 +65,7 @@ export function ZoneDetailsDrawer({ zone, onClose, onFocusMap }: ZoneDetailsDraw
             </section>
           )}
           <dl className="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.06]">
-            <Fact label="People" value={zone.people_count} /><Fact label="Vehicles" value={zone.vehicle_count} /><Fact label="Flood coverage" value={`${zone.flood_coverage_percent}%`} /><Fact label="Building instances" value={zone.building_damage_count} /><Fact label="Damage coverage" value={`${zone.building_damage_coverage_percent ?? 0}%`} /><Fact label="Pool coverage" value={`${zone.pool_coverage_percent ?? 0}%`} /><Fact label="Road condition" value={zone.road_condition === "UNKNOWN" ? "UNCERTAIN" : zone.road_condition} /><Fact label="Access status" value={zone.access_status} /><Fact label="Grid cells" value={zone.grid_cells?.join(", ") || "Not supplied"} /><Fact label="Temporal samples" value={zone.temporal_samples ?? 1} /><Fact label="Temporal state" value={zone.stale ? "STALE" : "CURRENT"} />
+            <Fact label="People" value={zone.people_count} /><Fact label="Vehicles" value={zone.vehicle_count} /><Fact label="Flood coverage" value={formatPercent(zone.flood_coverage_percent)} /><Fact label="Building instances" value={zone.building_damage_count} /><Fact label="Damage coverage" value={formatPercent(zone.building_damage_coverage_percent ?? 0)} /><Fact label="Pool coverage" value={formatPercent(zone.pool_coverage_percent ?? 0)} /><Fact label="Road condition" value={zone.road_condition === "UNKNOWN" ? "UNCERTAIN" : zone.road_condition} /><Fact label="Access status" value={zone.access_status} /><Fact label="Grid cells" value={zone.grid_cells?.join(", ") || "Not supplied"} /><Fact label="Temporal samples" value={zone.temporal_samples ?? 1} /><Fact label="Temporal state" value={zone.stale ? "STALE" : "CURRENT"} />
           </dl>
           <section className="mt-6" aria-labelledby="reason-heading"><h3 id="reason-heading" className="section-label">Priority explanation</h3><p className="mt-2 text-sm leading-6 text-slate-300">{zone.primary_reason}</p><div className="mt-4 space-y-4">{zone.reasons.map((reason) => <div key={reason.code}><div className="flex items-center justify-between gap-3 text-xs"><span className="font-medium text-slate-300">{reason.label}</span><span className="font-mono text-slate-200">+{reason.contribution}</span></div><div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/[0.05]"><div className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-cyan-300" style={{ width: `${reason.contribution}%` }} /></div><p className="mt-1.5 text-[0.68rem] text-slate-600">{reason.description}</p></div>)}</div></section>
           <div className="mt-6 flex items-center justify-between gap-3 rounded-xl border border-amber-300/10 bg-amber-300/[0.035] p-3"><span className="text-[0.66rem] text-slate-500">Supplied contribution total: <strong className="text-slate-300">{zone.reasons.reduce((sum, item) => sum + item.contribution, 0)}</strong></span><OriginBadge origin={zone.data_origin} compact /></div>

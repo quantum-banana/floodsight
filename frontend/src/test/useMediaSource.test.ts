@@ -39,6 +39,14 @@ describe("media source ownership", () => {
     vi.unstubAllGlobals();
   });
 
+  it("defaults to professional video-file mode", () => {
+    const { result } = renderHook(() => useMediaSource());
+
+    expect(result.current.mode).toBe("VIDEO_FILE");
+    expect(result.current.mediaOrigin).toBe("USER_VIDEO_FILE");
+    expect(result.current.readyForIngestion).toBe(false);
+  });
+
   it("accepts a local video, exposes metadata, and revokes its object URL", () => {
     const { result, unmount } = renderHook(() => useMediaSource());
     const video = fakeVideo();

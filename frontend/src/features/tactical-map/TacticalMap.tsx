@@ -2,14 +2,12 @@ import { Icon } from "../../components/Icon";
 import { OriginBadge } from "../../components/OriginBadge";
 import type { LiveResult } from "../../types/liveResult";
 import { toSvgPath, toSvgPoints } from "../../utils/geometry";
-import { LayerControls } from "./LayerControls";
-import type { LayerKey, LayerState } from "./layers";
+import type { LayerState } from "./layers";
 
 interface TacticalMapProps {
   snapshot: LiveResult;
   layers: LayerState;
   selectedZoneId: string | null;
-  onToggleLayer: (layer: LayerKey) => void;
   onSelectZone: (zoneId: string) => void;
 }
 
@@ -29,7 +27,6 @@ export function TacticalMap({
   snapshot,
   layers,
   selectedZoneId,
-  onToggleLayer,
   onSelectZone,
 }: TacticalMapProps) {
   return (
@@ -41,8 +38,6 @@ export function TacticalMap({
         </div>
         <OriginBadge origin={snapshot.data_origin} compact />
       </div>
-      <div className="border-b border-white/[0.06] px-4 py-2.5"><LayerControls layers={layers} onToggle={onToggleLayer} compact /></div>
-
       <div className="tactical-surface relative aspect-[16/9] min-h-64 overflow-hidden">
         <div aria-hidden="true" className="tactical-grid absolute inset-0" />
         <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 h-full w-full" role="img" aria-label="Relative tactical map">

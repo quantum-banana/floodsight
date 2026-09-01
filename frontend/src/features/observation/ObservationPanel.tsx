@@ -1,25 +1,25 @@
 import { useState } from "react";
 
 import { Icon } from "../../components/Icon";
-import { OriginBadge } from "../../components/OriginBadge";
 import type { FrameIngestionController } from "../../hooks/useFrameIngestion";
-import type { MediaSourceMode } from "../../hooks/useMediaSource";
+import type { MediaSourceMode, MediaSourceState } from "../../hooks/useMediaSource";
 import type { MediaOrigin } from "../../types/ingestion";
 import type { LiveResult } from "../../types/liveResult";
 import { formatTimestamp } from "../../utils/format";
 import { IngestionStatusStrip } from "../media/IngestionStatusStrip";
 import { LayerControls } from "../tactical-map/LayerControls";
 import type { LayerKey, LayerState } from "../tactical-map/layers";
-import { ModelStatusPanel } from "./ModelStatusPanel";
+import { ModelStatusDetails, ModelStatusPills } from "./ModelStatusPanel";
 import { OverlayRenderer } from "./OverlayRenderer";
 
 interface ObservationPanelProps {
-  snapshot: LiveResult;
+  snapshot: LiveResult | null;
   layers: LayerState;
   selectedZoneId: string | null;
   onToggleLayer: (layer: LayerKey) => void;
   onSelectZone: (zoneId: string) => void;
   mediaMode: MediaSourceMode;
+  mediaState: MediaSourceState;
   mediaOrigin: MediaOrigin | null;
   mediaVideoSrc: string | null;
   mediaStream: MediaStream | null;
@@ -32,15 +32,10 @@ interface ObservationPanelProps {
 export function ObservationPanel(props: ObservationPanelProps) {
   const [segmentationOpacity, setSegmentationOpacity] = useState(0.42);
   if (props.mediaMode !== "SIMULATION") {
-    return (
-      <ActualObservation
-        {...props}
-        segmentationOpacity={segmentationOpacity}
-        onSegmentationOpacityChange={setSegmentationOpacity}
-      />
-    );
+    return <ActualObservation {...props} segmentationOpacity={segmentationOpacity} onSegmentationOpacityChange={setSegmentationOpacity} />;
   }
-  return <SimulatedObservation {...props} />;
+  if (!props.snapshot) return null;
+  return <SimulatedObservation {...props} snapshot={props.snapshot} />;
 }
 
 interface ActualObservationProps extends ObservationPanelProps {
@@ -54,6 +49,7 @@ function ActualObservation({
   onToggleLayer,
   onSelectZone,
   mediaMode,
+  mediaState,
   mediaOrigin,
   mediaVideoSrc,
   mediaStream,
@@ -66,41 +62,20 @@ function ActualObservation({
 }: ActualObservationProps) {
   const intelligence = ingestion.intelligence;
   const isSimulatedFallback = intelligence?.data_origin === "DEMO_SIMULATED";
+  const stateLabel = mediaState === "PAUSED"
+    ? "PAUSED"
+    : intelligence
+    ? "LIVE"
+    : ingestion.metrics.connectionState === "offline"
+      ? "OFFLINE"
+      : ingestion.metrics.connectionState === "idle"
+          ? "READY"
+          : "ANALYSING";
+
   return (
-    <section className="command-panel min-w-0 overflow-hidden" aria-labelledby="observation-heading">
-      <div className="panel-heading flex-wrap gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="status-pulse" aria-hidden="true" />
-            <h2 id="observation-heading" className="panel-title">Actual media and intelligence</h2>
-          </div>
-          <p className="panel-subtitle">Browser-local {mediaMode === "VIDEO_FILE" ? "video file" : "camera stream"} · backend-owned analysis</p>
-        </div>
-        <span className="media-origin-badge" aria-label={`Media origin: ${mediaOrigin}`}>{mediaOrigin}</span>
-      </div>
-
-      <div className="border-b border-white/[0.06] px-4 py-2.5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <LayerControls layers={layers} onToggle={onToggleLayer} compact />
-          <label className="flex items-center gap-2 text-[0.62rem] text-slate-500">
-            Mask opacity
-            <input
-              aria-label="Segmentation mask opacity"
-              type="range"
-              min="0"
-              max="1"
-              step="0.05"
-              value={segmentationOpacity}
-              onChange={(event) => onSegmentationOpacityChange(Number(event.target.value))}
-              className="w-24 accent-cyan-400"
-            />
-          </label>
-        </div>
-      </div>
-
-      {intelligence && <ModelStatusPanel status={intelligence.system_status} />}
-
-      <div className="actual-media-scene relative aspect-video min-h-64 overflow-hidden bg-black">
+    <section className="command-panel canvas-panel" aria-labelledby="observation-heading">
+      <h2 id="observation-heading" className="sr-only">Actual media and intelligence</h2>
+      <div className="actual-media-scene canvas-frame relative aspect-video min-h-64 overflow-hidden bg-black">
         <video
           ref={bindVideoElement}
           src={mediaMode === "VIDEO_FILE" ? (mediaVideoSrc ?? undefined) : undefined}
@@ -110,7 +85,7 @@ function ActualObservation({
           onLoadedMetadata={onMediaLoadedMetadata}
           onEnded={onMediaEnded}
           className="h-full w-full object-contain"
-          aria-label={mediaMode === "VIDEO_FILE" ? "Selected local video preview" : "Webcam preview"}
+          aria-label={mediaMode === "VIDEO_FILE" ? "Selected local video preview" : "Live camera preview"}
         />
         {intelligence && (
           <OverlayRenderer
@@ -123,42 +98,56 @@ function ActualObservation({
             simulated={isSimulatedFallback}
           />
         )}
+
+        <div className="canvas-toolbar">
+          <LayerControls layers={layers} onToggle={onToggleLayer} />
+          <label className="opacity-tool" title="Segmentation mask opacity">
+            <Icon name="water" />
+            <span className="sr-only">Mask opacity</span>
+            <input
+              aria-label="Segmentation mask opacity"
+              type="range"
+              min="0"
+              max="1"
+              step="0.05"
+              value={segmentationOpacity}
+              onChange={(event) => onSegmentationOpacityChange(Number(event.target.value))}
+            />
+          </label>
+          {intelligence && <ModelStatusPills status={intelligence.system_status} />}
+        </div>
+
         {!mediaVideoSrc && !mediaStream && (
-          <div className="absolute inset-0 grid place-content-center px-6 text-center">
-            <Icon name={mediaMode === "WEBCAM" ? "eye" : "play"} className="mx-auto h-8 w-8 text-cyan-300/50" />
-            <p className="mt-3 text-sm font-semibold text-slate-300">{mediaMode === "WEBCAM" ? "Start the camera to request permission" : "Choose a local video to preview"}</p>
-            <p className="mt-1 text-xs text-slate-600">Original media never leaves the browser.</p>
+          <div className="canvas-placeholder">
+            <Icon name={mediaMode === "WEBCAM" ? "eye" : "play"} />
+            <p>{mediaMode === "WEBCAM" ? "Start live camera" : "Choose a video"}</p>
           </div>
         )}
-        <div className={`absolute top-3 left-3 rounded-md border bg-[#06110e]/85 px-2.5 py-1 font-mono text-[0.62rem] tracking-wider uppercase ${
-          isSimulatedFallback
-            ? "border-amber-300/20 text-amber-200"
-            : intelligence
-              ? "border-emerald-300/20 text-emerald-300"
-              : "border-white/10 text-slate-400"
-        }`}>
-          {isSimulatedFallback
-            ? "SIMULATED FALLBACK"
-            : intelligence
-              ? `BACKEND INTELLIGENCE · FRAME ${intelligence.frame_id}`
-              : ingestion.metrics.analysisStatus.replaceAll("_", " ")}
-        </div>
+
+        <span className={`canvas-state canvas-state-${stateLabel.toLowerCase()}`} aria-label={`Actual media state: ${stateLabel}`}>
+          <span />{stateLabel}
+        </span>
+        {mediaOrigin && <span className="sr-only" aria-label={`Media origin: ${mediaOrigin}`}>{mediaOrigin}</span>}
+        {intelligence && <SemanticLegend snapshot={intelligence} />}
       </div>
 
-      {intelligence && <SemanticLegend snapshot={intelligence} />}
-      <details className="border-t border-sky-950/10 px-3 py-1">
-        <summary className="disclosure-summary">Inference diagnostics</summary>
-        <div className="-mx-3 border-t border-sky-950/10">
-          <IngestionStatusStrip metrics={ingestion.metrics} />
-          {intelligence?.evidence_frames && <EvidenceFrameStatus snapshot={intelligence} />}
-        </div>
-      </details>
-      {!intelligence && (
-        <div className="border-t border-white/[0.06] bg-white/[0.02] px-4 py-3 text-xs leading-5 text-slate-400">
-          {ingestion.metrics.analysisStatus === "MODEL_UNAVAILABLE"
-            ? "No inference overlay is shown because the configured model artifacts are unavailable."
-            : "Awaiting the first backend-computed intelligence update. No local analytics are substituted."}
-        </div>
+      {intelligence ? (
+        <details id="model-details" className="canvas-details">
+          <summary className="disclosure-summary">Details</summary>
+          <div className="canvas-details-content">
+            <section aria-labelledby="model-detail-heading">
+              <h3 id="model-detail-heading">Model</h3>
+              <ModelStatusDetails status={intelligence.system_status} />
+            </section>
+            <section aria-labelledby="session-detail-heading">
+              <h3 id="session-detail-heading">Session and diagnostics</h3>
+              <IngestionStatusStrip metrics={ingestion.metrics} />
+              {intelligence.evidence_frames && <EvidenceFrameStatus snapshot={intelligence} />}
+            </section>
+          </div>
+        </details>
+      ) : (
+        <div className="canvas-awaiting" role="status">Awaiting intelligence</div>
       )}
     </section>
   );
@@ -169,9 +158,9 @@ function EvidenceFrameStatus({ snapshot }: { snapshot: LiveResult }) {
   if (!evidence) return null;
   const describe = (source: number | null, reused: boolean) => source === null
     ? "unavailable"
-    : `frame ${source}${reused ? " · cached by configured cadence" : " · current inference"}`;
+    : `frame ${source}${reused ? " · cached by cadence" : " · current inference"}`;
   return (
-    <div className="grid gap-2 border-t border-white/[0.06] px-4 py-3 font-mono text-[0.62rem] text-slate-500 sm:grid-cols-2" aria-label="Evidence frame freshness">
+    <div className="evidence-freshness" aria-label="Evidence frame freshness">
       <span>Segmentation: {describe(evidence.segmentation_source_frame_id, evidence.segmentation_reused)}</span>
       <span>Detection: {describe(evidence.detection_source_frame_id, evidence.detection_reused)}</span>
     </div>
@@ -184,23 +173,22 @@ function SimulatedObservation({
   selectedZoneId,
   onToggleLayer,
   onSelectZone,
-}: ObservationPanelProps) {
+}: ObservationPanelProps & { snapshot: LiveResult }) {
   return (
-    <section className="command-panel min-w-0 overflow-hidden" aria-labelledby="observation-heading">
-      <div className="panel-heading flex-wrap gap-3">
-        <div>
-          <div className="flex items-center gap-2"><span className="status-pulse" aria-hidden="true" /><h2 id="observation-heading" className="panel-title">Simulated sensor view</h2></div>
-          <p className="panel-subtitle">Normalized scene evidence · Snapshot {snapshot.snapshot_index + 1}</p>
-        </div>
-        <div className="flex items-center gap-2"><span className="font-mono text-[0.65rem] text-slate-500">{formatTimestamp(snapshot.timestamp_ms)} UTC</span><OriginBadge origin={snapshot.data_origin} compact /></div>
-      </div>
-      <div className="border-b border-white/[0.06] px-4 py-2.5"><LayerControls layers={layers} onToggle={onToggleLayer} compact /></div>
-      <ModelStatusPanel status={snapshot.system_status} />
-      <div className="sensor-scene relative aspect-[16/8.7] min-h-64 overflow-hidden bg-[#08141a]">
+    <section className="command-panel canvas-panel" aria-labelledby="observation-heading">
+      <h2 id="observation-heading" className="sr-only">Demo scenario intelligence</h2>
+      <div className="sensor-scene canvas-frame relative aspect-[16/8.7] min-h-64 overflow-hidden">
         <OverlayRenderer snapshot={snapshot} layers={layers} selectedZoneId={selectedZoneId} onSelectZone={onSelectZone} />
-        <div aria-hidden="true" className="sensor-scan-line" />
-        <div className="pointer-events-none absolute right-3 bottom-3 flex items-center gap-2 rounded-lg border border-white/[0.08] bg-[#071016]/80 px-2.5 py-1.5 font-mono text-[0.6rem] tracking-wider text-slate-500 uppercase backdrop-blur"><Icon name="eye" className="h-3 w-3 text-cyan-300" /> Synthetic geometry only</div>
+        <div className="canvas-toolbar">
+          <LayerControls layers={layers} onToggle={onToggleLayer} />
+          <ModelStatusPills status={snapshot.system_status} />
+        </div>
+        <span className="canvas-state canvas-state-demo">Demo · {formatTimestamp(snapshot.timestamp_ms)} UTC</span>
       </div>
+      <details id="model-details" className="canvas-details">
+        <summary className="disclosure-summary">Details</summary>
+        <div className="canvas-details-content"><section><h3>Model</h3><ModelStatusDetails status={snapshot.system_status} /></section></div>
+      </details>
     </section>
   );
 }
@@ -209,15 +197,10 @@ function SemanticLegend({ snapshot }: { snapshot: LiveResult }) {
   const classes = snapshot.segmentation.classes.filter((item) => item.coverage_percent > 0);
   if (!classes.length) return null;
   return (
-    <div className="flex flex-wrap gap-x-4 gap-y-2 border-t border-white/[0.06] px-4 py-3 text-[0.62rem] text-slate-500" aria-label="Segmentation class legend">
+    <div className="semantic-legend" aria-label="Segmentation class legend">
       {classes.map((item) => {
         const rgb = item.color ?? [148, 163, 184];
-        return (
-          <span key={`${item.class_id ?? "class"}-${item.label}`} className="inline-flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-sm" style={{ backgroundColor: `rgb(${rgb.join(",")})` }} />
-            {item.label.replaceAll("_", " ")} · {item.coverage_percent.toFixed(1)}%
-          </span>
-        );
+        return <span key={`${item.class_id ?? "class"}-${item.label}`}><i style={{ backgroundColor: `rgb(${rgb.join(",")})` }} />{item.label.replaceAll("_", " ")} {item.coverage_percent.toFixed(1)}%</span>;
       })}
     </div>
   );

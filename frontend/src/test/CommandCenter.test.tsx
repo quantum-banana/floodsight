@@ -110,17 +110,17 @@ describe("FloodSight command center", () => {
       connectionState: "loading",
     });
 
-    render(<CommandCenter />);
+    render(<CommandCenter demoMode />);
 
     expect(screen.getByLabelText("Loading FloodSight command centre")).toBeInTheDocument();
-    expect(screen.getByText("Loading deterministic incident")).toBeInTheDocument();
+    expect(screen.getByText("Preparing intelligence…")).toBeInTheDocument();
   });
 
   it("renders simulated provenance, headline statistics, and backend-ranked zones", () => {
-    render(<CommandCenter />);
+    render(<CommandCenter demoMode />);
 
     expect(screen.getByText("Riverside Ward Flood Response")).toBeInTheDocument();
-    expect(screen.getAllByLabelText("Data origin: DEMO_SIMULATED").length).toBeGreaterThan(2);
+    expect(screen.getAllByLabelText("Data origin: DEMO_SIMULATED").length).toBeGreaterThan(0);
     expect(screen.getByText("42%")).toBeInTheDocument();
     expect(screen.getAllByLabelText("Stream connection: Replay complete").length).toBeGreaterThan(0);
     expect(screen.getByText("No geographic scale, distance, or travel time")).toBeInTheDocument();
@@ -131,14 +131,14 @@ describe("FloodSight command center", () => {
     expect(orderedIds).toEqual(["ZONE-2", "ZONE-4", "ZONE-1"]);
   });
 
-  it("offers all media sources while keeping simulation as the functional default", () => {
+  it("makes actual media the professional default without simulation or replay language", () => {
     render(<CommandCenter />);
 
     const selector = screen.getByRole("group", { name: "Media source selector" });
-    expect(within(selector).getByRole("button", { name: /Simulation/ })).toHaveAttribute("aria-pressed", "true");
-    expect(within(selector).getByRole("button", { name: /Video file/ })).toBeEnabled();
-    expect(within(selector).getByRole("button", { name: /Webcam/ })).toBeEnabled();
-    expect(screen.getByLabelText("Simulation controls")).toBeInTheDocument();
+    expect(within(selector).getByRole("button", { name: "Video" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(selector).getByRole("button", { name: "Live camera" })).toBeEnabled();
+    expect(screen.getAllByLabelText("Choose video").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/simulation|replay|demo scenario/i)).not.toBeInTheDocument();
   });
 
   it("labels actual local media honestly without substituting simulated analytics", () => {
@@ -149,17 +149,17 @@ describe("FloodSight command center", () => {
       revokeObjectURL: { configurable: true, value: revokeObjectURL },
     });
     render(<CommandCenter />);
-    fireEvent.click(screen.getByRole("button", { name: /Video file/ }));
-    const input = screen.getByLabelText("Choose video");
+    const input = document.querySelector<HTMLInputElement>('#video-file-input');
+    expect(input).not.toBeNull();
     const file = new File(["local"], "incident.webm", { type: "video/webm" });
-    fireEvent.change(input, { target: { files: [file] } });
+    fireEvent.change(input as HTMLInputElement, { target: { files: [file] } });
 
     expect(createObjectURL).toHaveBeenCalledWith(file);
     expect(screen.getByLabelText("Media origin: USER_VIDEO_FILE")).toBeInTheDocument();
     expect(screen.queryByLabelText(/Normalized simulated flood observation/)).not.toBeInTheDocument();
     expect(screen.queryByText("42%")).not.toBeInTheDocument();
-    expect(screen.getByText(/Awaiting the first backend-computed intelligence update/)).toBeInTheDocument();
-    expect(screen.getByText(/Demo values are not substituted/)).toBeInTheDocument();
+    expect(screen.getByText("Awaiting intelligence")).toBeInTheDocument();
+    expect(screen.queryByText(/demo|simulation|replay/i)).not.toBeInTheDocument();
   });
 
   it("renders backend intelligence and class-aware provenance over actual media", async () => {
@@ -184,10 +184,9 @@ describe("FloodSight command center", () => {
       retry: vi.fn(),
     });
     render(<CommandCenter />);
-    fireEvent.click(screen.getByRole("button", { name: /Video file/ }));
 
     expect(screen.getByLabelText(/Normalized model-derived flood observation/)).toBeInTheDocument();
-    expect(screen.getByText(/BACKEND INTELLIGENCE/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Actual media state: LIVE")).toBeInTheDocument();
     expect(screen.getByLabelText("Segmentation class legend")).toHaveTextContent("water");
     expect(screen.getByLabelText("Segmentation class legend")).toHaveTextContent("pool");
     expect(screen.getByLabelText("Inference model status")).toHaveTextContent("REAL");
@@ -202,14 +201,14 @@ describe("FloodSight command center", () => {
   });
 
   it("reorders rescue cards when a later backend snapshot changes rank", () => {
-    const { rerender } = render(<CommandCenter />);
+    const { rerender } = render(<CommandCenter demoMode />);
     vi.mocked(useDemoIncident).mockReturnValue({
       ...readyState,
       snapshot: reorderedSnapshot,
       connectionState: "connected",
     });
 
-    rerender(<CommandCenter />);
+    rerender(<CommandCenter demoMode />);
 
     const orderedIds = [...document.querySelectorAll<HTMLElement>("[data-zone-id]")].map(
       (element) => element.dataset.zoneId,
@@ -218,7 +217,7 @@ describe("FloodSight command center", () => {
   });
 
   it("opens an explainable zone drawer from the priority list", () => {
-    render(<CommandCenter />);
+    render(<CommandCenter demoMode />);
     const zoneCard = document.querySelector<HTMLElement>('[data-zone-id="ZONE-2"]');
     expect(zoneCard).not.toBeNull();
 
@@ -233,19 +232,15 @@ describe("FloodSight command center", () => {
     expect(drawer).toHaveTextContent("Supplied contribution total: 92");
   });
 
-  it("keeps observation and tactical layer controls synchronized", () => {
-    render(<CommandCenter />);
+  it("uses one canvas layer toolbar to control observation and tactical overlays", () => {
+    render(<CommandCenter demoMode />);
     const floodButtons = screen.getAllByRole("button", { name: "Flood" });
-    expect(floodButtons).toHaveLength(2);
+    expect(floodButtons).toHaveLength(1);
     expect(floodButtons[0]).toHaveAttribute("aria-pressed", "true");
 
     fireEvent.click(floodButtons[0]);
 
     expect(screen.getAllByRole("button", { name: "Flood" })[0]).toHaveAttribute(
-      "aria-pressed",
-      "false",
-    );
-    expect(screen.getAllByRole("button", { name: "Flood" })[1]).toHaveAttribute(
       "aria-pressed",
       "false",
     );
@@ -257,7 +252,7 @@ describe("FloodSight command center", () => {
       configurable: true,
       value: { writeText },
     });
-    render(<CommandCenter />);
+    render(<CommandCenter demoMode />);
 
     fireEvent.click(screen.getByRole("button", { name: "Open incident report" }));
 
@@ -279,7 +274,7 @@ describe("FloodSight command center", () => {
       connectionState: "offline",
       error: "Unable to reach the FloodSight API.",
     });
-    render(<CommandCenter />);
+    render(<CommandCenter demoMode />);
 
     expect(screen.getByRole("alert")).toHaveTextContent("No local incident values");
     fireEvent.click(screen.getByRole("button", { name: "Retry connection" }));
@@ -292,9 +287,9 @@ describe("FloodSight command center", () => {
       connectionState: "malformed",
       error: "The demo backend sent an invalid message.",
     });
-    render(<CommandCenter />);
+    render(<CommandCenter demoMode />);
 
-    expect(screen.getByText(/Current values are retained from the last valid backend message/)).toBeInTheDocument();
+    expect(screen.getByText(/Last valid intelligence retained/)).toBeInTheDocument();
     expect(screen.getByText("42%")).toBeInTheDocument();
   });
 });

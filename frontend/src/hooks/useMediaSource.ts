@@ -57,8 +57,8 @@ const cameraErrorMessage = (error: unknown) => {
   return "Unable to start the camera. Check browser permissions and device availability.";
 };
 
-export function useMediaSource(): MediaSourceController {
-  const [mode, setMode] = useState<MediaSourceMode>("SIMULATION");
+export function useMediaSource(initialMode: MediaSourceMode = "VIDEO_FILE"): MediaSourceController {
+  const [mode, setMode] = useState<MediaSourceMode>(initialMode);
   const [state, setState] = useState<MediaSourceState>("IDLE");
   const [videoSrc, setVideoSrc] = useState<string | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);

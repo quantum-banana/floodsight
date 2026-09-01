@@ -125,9 +125,9 @@ export function OverlayRenderer({
         const anchor = zone.polygon[0];
         return (
           <g key={zone.zone_id} className="cursor-pointer" role="button" tabIndex={0} aria-label={`View ${zone.display_name}`} onClick={() => onSelectZone(zone.zone_id)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") onSelectZone(zone.zone_id); }}>
-            <polygon points={toSvgPoints(zone.polygon)} fill={color} fillOpacity={selected ? 0.22 : 0.1} stroke={color} strokeWidth={selected ? 1.1 : 0.65} strokeDasharray={selected ? undefined : "2 1"} filter={selected ? "url(#zone-glow)" : undefined} />
-            <rect x={anchor.x * 100} y={anchor.y * 100 - 5} width="14" height="4.4" rx="1" fill="#071016" fillOpacity="0.88" stroke={color} strokeWidth="0.35" />
-            <text x={anchor.x * 100 + 1} y={anchor.y * 100 - 2} fill={color} fontSize="2.2" fontWeight="700">{zone.display_name.toUpperCase()} · {zone.priority_score}</text>
+            <polygon points={toSvgPoints(zone.polygon)} fill={color} fillOpacity={selected ? 0.18 : 0.065} stroke={color} strokeOpacity={selected ? 0.92 : 0.54} strokeWidth={selected ? 0.9 : 0.48} filter={selected ? "url(#zone-glow)" : undefined} />
+            <rect x={anchor.x * 100} y={anchor.y * 100 - 4.4} width="23.5" height="3.6" rx="0.7" fill="#071016" fillOpacity="0.82" stroke={color} strokeOpacity="0.8" strokeWidth="0.28" />
+            <text x={anchor.x * 100 + 0.9} y={anchor.y * 100 - 1.95} fill={color} fontSize="1.45" fontWeight="750">ZONE {zone.rank} • {zone.priority_score} • {zone.severity}</text>
           </g>
         );
       })}

@@ -5,7 +5,7 @@ function App() {
   const path = window.location.pathname.replace(/\/$/, "") || "/";
   const showDiagnostics = path === "/system" || path === "/diagnostics";
 
-  return showDiagnostics ? <DiagnosticsPage /> : <CommandCenter />;
+  return showDiagnostics ? <DiagnosticsPage /> : <CommandCenter demoMode={path === "/demo"} />;
 }
 
 export default App;

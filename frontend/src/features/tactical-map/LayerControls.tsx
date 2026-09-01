@@ -7,28 +7,43 @@ interface LayerControlsProps {
   compact?: boolean;
 }
 
-export function LayerControls({ layers, onToggle, compact = false }: LayerControlsProps) {
+const primaryLayers: LayerKey[] = ["flood", "people", "vehicles", "zones", "route"];
+const secondaryLayers: LayerKey[] = ["roads", "buildings"];
+const layerIcons: Record<LayerKey, "water" | "road" | "people" | "vehicle" | "building" | "focus" | "route"> = {
+  flood: "water",
+  roads: "road",
+  people: "people",
+  vehicles: "vehicle",
+  buildings: "building",
+  zones: "focus",
+  route: "route",
+};
+
+export function LayerControls({ layers, onToggle }: LayerControlsProps) {
+  const renderButton = (layer: LayerKey) => (
+    <button
+      key={layer}
+      type="button"
+      aria-label={LAYER_LABELS[layer]}
+      aria-pressed={layers[layer]}
+      onClick={() => onToggle(layer)}
+      className={`layer-tool ${layers[layer] ? "layer-tool-active" : ""}`}
+      title={LAYER_LABELS[layer]}
+    >
+      <Icon name={layerIcons[layer]} />
+      <span>{LAYER_LABELS[layer]}</span>
+    </button>
+  );
+
   return (
-    <fieldset className="flex flex-wrap gap-1.5" aria-label="Map layers">
+    <fieldset className="layer-tools" aria-label="Map layers">
       <legend className="sr-only">Visible tactical layers</legend>
-      {(Object.keys(LAYER_LABELS) as LayerKey[]).map((layer) => (
-        <button
-          key={layer}
-          type="button"
-          aria-pressed={layers[layer]}
-          onClick={() => onToggle(layer)}
-          className={`inline-flex min-h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[0.66rem] font-medium transition focus-visible:outline-2 focus-visible:outline-cyan-300 ${
-            layers[layer]
-              ? "border-cyan-300/20 bg-cyan-300/[0.08] text-cyan-200"
-              : "border-white/[0.06] bg-white/[0.02] text-slate-600"
-          } ${compact && layer === "route" ? "hidden sm:inline-flex" : ""}`}
-        >
-          <span className={`grid h-3 w-3 place-items-center rounded-sm border ${layers[layer] ? "border-cyan-300/40 bg-cyan-300/20" : "border-slate-700"}`}>
-            {layers[layer] && <Icon name="check" className="h-2.5 w-2.5" />}
-          </span>
-          {LAYER_LABELS[layer]}
-        </button>
-      ))}
+      <span className="layer-tools-label">Layers</span>
+      {primaryLayers.map(renderButton)}
+      <details className="layer-more">
+        <summary aria-label="More layers" title="More layers">•••</summary>
+        <div>{secondaryLayers.map(renderButton)}</div>
+      </details>
     </fieldset>
   );
 }

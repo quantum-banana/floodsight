@@ -21,3 +21,7 @@ export function severityLabel(severity: Severity): string {
 export function formatConfidence(confidence: number): string {
   return `${Math.round(confidence * 100)}%`;
 }
+
+export function formatPercent(value: number): string {
+  return `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 }).format(value)}%`;
+}

@@ -41,12 +41,12 @@ export function WaterAmbience() {
       <svg viewBox="0 0 2400 300" preserveAspectRatio="none">
         <defs>
           <linearGradient id="arctic-water-fill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#8edfec" stopOpacity="0.2" />
-            <stop offset="1" stopColor="#cceff6" stopOpacity="0.52" />
+            <stop offset="0" stopColor="#8edfec" stopOpacity="0.09" />
+            <stop offset="1" stopColor="#cceff6" stopOpacity="0.22" />
           </linearGradient>
           <linearGradient id="arctic-water-fill-soft" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#58c9dc" stopOpacity="0.1" />
-            <stop offset="1" stopColor="#bce9f1" stopOpacity="0.32" />
+            <stop offset="0" stopColor="#58c9dc" stopOpacity="0.05" />
+            <stop offset="1" stopColor="#bce9f1" stopOpacity="0.14" />
           </linearGradient>
         </defs>
         <path
