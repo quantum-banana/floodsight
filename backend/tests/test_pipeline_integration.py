@@ -21,6 +21,7 @@ from app.inference.contracts import (
 )
 from app.inference.pipeline import InferencePipeline
 from app.main import create_app
+from app.schemas.ingestion import VideoAnalysisComplete
 from app.schemas.live_result import BoundingBox, SourceMode
 from app.schemas.model_status import (
     InferenceState,
@@ -30,7 +31,9 @@ from app.schemas.model_status import (
     ModelStatusResponse,
 )
 from app.services.demo_incident import get_demo_snapshots
+from app.services.incident_reporting import build_video_analysis_report
 from app.services.inference_coordinator import InferenceCoordinator
+from app.services.video_analysis import VideoAnalysisAggregator
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 LIVE_SCHEMA = json.loads(
@@ -107,6 +110,27 @@ class StubDetectionAdapter:
             inference_latency_ms=1,
             device="cpu",
             provenance_mode=DetectionProvenance.PRETRAINED_FALLBACK,
+        )
+
+
+class FailsAfterFirstDetectionAdapter(StubDetectionAdapter):
+    def infer(
+        self,
+        frame: np.ndarray,
+        *,
+        frame_id: int,
+        timestamp_ms: int,
+        detector_mode: DetectorInferenceMode = DetectorInferenceMode.STANDARD,
+        segmentation: SegmentationResult | None = None,
+    ) -> DetectionResult:
+        if frame_id > 0:
+            raise RuntimeError("detector failed")
+        return super().infer(
+            frame,
+            frame_id=frame_id,
+            timestamp_ms=timestamp_ms,
+            detector_mode=detector_mode,
+            segmentation=segmentation,
         )
 
 
@@ -251,6 +275,93 @@ def test_pipeline_emits_explicit_event_when_primary_route_becomes_unsafe() -> No
     assert final.route.previous_edge_ids
     assert any(event.code == "ROUTE_CHANGED_PRIMARY_ACCESS_UNSAFE" for event in final.events)
     assert any(road.state.value == "BLOCKED" and not road.enabled for road in final.roads)
+
+
+def test_pipeline_marks_missing_detection_evidence_without_claiming_zero_people() -> None:
+    pipeline = InferencePipeline(
+        Settings(inference_resolution=256, segmentation_cadence=1, detection_cadence=1)
+    )
+    pipeline.segmentation_adapter = StubSegmentationAdapter()  # type: ignore[assignment]
+    pipeline.detection_adapter = None
+    pipeline._segmentation_status = _ready_status()
+    pipeline._detection_status = ModelStatus(
+        status=ModelState.UNAVAILABLE,
+        model=None,
+        mode=ModelOperationalMode.UNAVAILABLE,
+        message="Detector unavailable in test.",
+    )
+    pipeline._initialized = True
+
+    results = [
+        pipeline.process(
+            session_id="segmentation-only-session",
+            frame_bgr=np.zeros((32, 32, 3), dtype=np.uint8),
+            frame_id=frame_id,
+            timestamp_ms=30_000 + frame_id * 300,
+            source_mode=SourceMode.VIDEO_FILE,
+        )
+        for frame_id in range(2)
+    ]
+    final = results[-1]
+
+    assert final is not None
+    assert final.zones
+    codes = {reason.code for reason in final.zones[0].reasons}
+    assert "PERSON_EVIDENCE_UNAVAILABLE" in codes
+    assert "NO_PERSON_EVIDENCE" not in codes
+    assert any(code in codes for code in {"FLOOD_EXPOSURE", "HIGH_FLOOD_EXPOSURE"})
+    aggregator = VideoAnalysisAggregator("segmentation-only-session-aggregate")
+    aggregator.add(final, media_time_ms=300)
+    summary = aggregator.build_summary(
+        frames_accepted=2,
+        frames_dropped=0,
+        model_status=pipeline.status(),
+    )
+    report = build_video_analysis_report(
+        VideoAnalysisComplete(
+            session_id=summary.session_id,
+            summary=summary,
+            latest_result=final,
+        )
+    )
+    assert summary.priorities[0].detection_evidence_available is False
+    assert "PERSON_EVIDENCE_UNAVAILABLE" in report.reason_codes
+    assert "NO_PERSON_EVIDENCE" not in report.reason_codes
+
+
+def test_temporal_zone_retains_detection_provenance_after_midstream_failure() -> None:
+    pipeline = InferencePipeline(
+        Settings(inference_resolution=256, segmentation_cadence=1, detection_cadence=1)
+    )
+    pipeline.segmentation_adapter = StubSegmentationAdapter()  # type: ignore[assignment]
+    pipeline.detection_adapter = FailsAfterFirstDetectionAdapter()  # type: ignore[assignment]
+    pipeline._segmentation_status = _ready_status()
+    pipeline._detection_status = _ready_status()
+    pipeline._initialized = True
+
+    first = pipeline.process(
+        session_id="detector-failure-session",
+        frame_bgr=np.zeros((32, 32, 3), dtype=np.uint8),
+        frame_id=0,
+        timestamp_ms=40_000,
+        source_mode=SourceMode.VIDEO_FILE,
+    )
+    after_failure = pipeline.process(
+        session_id="detector-failure-session",
+        frame_bgr=np.zeros((32, 32, 3), dtype=np.uint8),
+        frame_id=1,
+        timestamp_ms=40_300,
+        source_mode=SourceMode.VIDEO_FILE,
+    )
+
+    assert first is not None
+    assert after_failure is not None
+    assert after_failure.system_status.detection_model is ModelState.ERROR
+    assert after_failure.zones[0].people_count == 1
+    codes = {reason.code for reason in after_failure.zones[0].reasons}
+    assert "PERSON_EVIDENCE" in codes
+    assert "PERSON_EVIDENCE_UNAVAILABLE" not in codes
+    assert "NO_PERSON_EVIDENCE" not in codes
 
 
 class SocketStubPipeline:

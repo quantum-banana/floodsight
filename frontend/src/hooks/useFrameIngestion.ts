@@ -9,7 +9,11 @@ import {
 } from "../config/environment";
 import { captureJpeg } from "../services/frameCapture";
 import { saveIngestionDiagnostics } from "../services/ingestionDiagnostics";
-import { createIngestionSession, deleteIngestionSession } from "../services/ingestionApi";
+import {
+  completeIngestionSession,
+  createIngestionSession,
+  deleteIngestionSession,
+} from "../services/ingestionApi";
 import {
   openIngestionSocket,
   type IngestionSocketConnection,
@@ -22,6 +26,7 @@ import type {
   FrameResult,
   IngestionMetrics,
   MediaOrigin,
+  VideoAnalysisComplete,
 } from "../types/ingestion";
 import type { LiveResult, ModelStatus } from "../types/liveResult";
 
@@ -32,6 +37,7 @@ interface UseFrameIngestionOptions {
   detectorMode: DetectorInferenceMode;
   sourceReady: boolean;
   captureActive: boolean;
+  sourceComplete: boolean;
   sourceGeneration: number;
 }
 
@@ -67,8 +73,12 @@ const describeModels = (
 export interface FrameIngestionController {
   metrics: IngestionMetrics;
   intelligence: LiveResult | null;
+  completionState: IngestionCompletionState;
+  completion: VideoAnalysisComplete | null;
   retry: () => void;
 }
+
+export type IngestionCompletionState = "IDLE" | "FINALIZING" | "COMPLETE" | "ERROR";
 
 export function useFrameIngestion({
   videoElement,
@@ -77,11 +87,15 @@ export function useFrameIngestion({
   detectorMode,
   sourceReady,
   captureActive,
+  sourceComplete,
   sourceGeneration,
 }: UseFrameIngestionOptions): FrameIngestionController {
   const [metrics, setMetrics] = useState<IngestionMetrics>(initialMetrics);
   const [intelligence, setIntelligence] = useState<LiveResult | null>(null);
+  const [completionState, setCompletionState] = useState<IngestionCompletionState>("IDLE");
+  const [completion, setCompletion] = useState<VideoAnalysisComplete | null>(null);
   const [retryGeneration, setRetryGeneration] = useState(0);
+  const [completionRetryGeneration, setCompletionRetryGeneration] = useState(0);
   const socketRef = useRef<IngestionSocketConnection | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const frameIdRef = useRef(0);
@@ -91,11 +105,19 @@ export function useFrameIngestion({
   const captureStartedAtRef = useRef<number | null>(null);
   const intentionalCloseRef = useRef(false);
   const captureActiveRef = useRef(captureActive);
+  const sourceCompleteRef = useRef(sourceComplete);
   const latestSequenceRef = useRef(-1);
+  const completionRequestedRef = useRef(false);
+  const forceCompletionRef = useRef(false);
+  const activeSessionIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     captureActiveRef.current = captureActive;
   }, [captureActive]);
+
+  useEffect(() => {
+    sourceCompleteRef.current = sourceComplete;
+  }, [sourceComplete]);
 
   const clearAckTimer = useCallback(() => {
     if (ackTimerRef.current !== null) {
@@ -104,14 +126,31 @@ export function useFrameIngestion({
     }
   }, []);
 
+  const requestSameSessionCompletion = useCallback(() => {
+    if (!sourceCompleteRef.current || completionRequestedRef.current) return false;
+    if (forceCompletionRef.current) return true;
+    clearAckTimer();
+    inFlightRef.current = false;
+    expectedFrameIdRef.current = null;
+    forceCompletionRef.current = true;
+    setCompletionState("FINALIZING");
+    setCompletionRetryGeneration((value) => value + 1);
+    return true;
+  }, [clearAckTimer]);
+
   useEffect(() => {
     saveIngestionDiagnostics(metrics);
   }, [metrics]);
 
   useEffect(() => {
     if (!sourceReady || !sourceMode || !mediaOrigin) {
+      activeSessionIdRef.current = null;
+      completionRequestedRef.current = false;
+      forceCompletionRef.current = false;
       setMetrics(initialMetrics());
       setIntelligence(null);
+      setCompletionState("IDLE");
+      setCompletion(null);
       return;
     }
 
@@ -123,7 +162,12 @@ export function useFrameIngestion({
     expectedFrameIdRef.current = null;
     captureStartedAtRef.current = null;
     latestSequenceRef.current = -1;
+    completionRequestedRef.current = false;
+    forceCompletionRef.current = false;
+    activeSessionIdRef.current = null;
     setIntelligence(null);
+    setCompletionState("IDLE");
+    setCompletion(null);
     setMetrics({
       ...initialMetrics(),
       sourceMode,
@@ -139,6 +183,7 @@ export function useFrameIngestion({
           return;
         }
         sessionId = session.session_id;
+        activeSessionIdRef.current = session.session_id;
         setMetrics((current) => ({
           ...current,
           sessionId,
@@ -150,15 +195,24 @@ export function useFrameIngestion({
         socketRef.current = openIngestionSocket(session.session_id, {
           onOpen: () => {
             if (cancelled) return;
-            setMetrics((current) => ({
-              ...current,
-              connectionState: captureActiveRef.current ? "streaming" : "paused",
-              sessionState: "ACTIVE",
-              lastError: null,
-            }));
+            setMetrics((current) => current.sessionState === "FINALIZING" || current.sessionState === "COMPLETE"
+              ? current
+              : {
+                  ...current,
+                  connectionState: captureActiveRef.current ? "streaming" : "paused",
+                  sessionState: "ACTIVE",
+                  lastError: null,
+                });
           },
           onResult: (result: FrameResult) => {
             if (cancelled) return;
+            if (
+              result.session_id === session.session_id
+              && sourceCompleteRef.current
+              && (completionRequestedRef.current || forceCompletionRef.current)
+            ) {
+              return;
+            }
             if (
               result.session_id !== session.session_id ||
               result.frame_id !== expectedFrameIdRef.current
@@ -218,32 +272,47 @@ export function useFrameIngestion({
             }));
           },
           onMalformedMessage: () => {
+            if (sourceCompleteRef.current && (completionRequestedRef.current || forceCompletionRef.current)) return;
             clearAckTimer();
             inFlightRef.current = false;
+            const finalizingSameSession = requestSameSessionCompletion();
             setMetrics((current) => ({
               ...current,
               connectionState: "malformed",
-              lastError: "The ingestion server returned a malformed acknowledgement.",
+              sessionState: finalizingSameSession ? "FINALIZING" : current.sessionState,
+              lastError: finalizingSameSession
+                ? "The final frame acknowledgement was malformed. Finalizing server-accepted work on the same session."
+                : "The ingestion server returned a malformed acknowledgement.",
             }));
           },
           onError: () => {
             if (cancelled) return;
+            if (sourceCompleteRef.current && (completionRequestedRef.current || forceCompletionRef.current)) return;
             clearAckTimer();
             inFlightRef.current = false;
+            const finalizingSameSession = requestSameSessionCompletion();
             setMetrics((current) => ({
               ...current,
               connectionState: "offline",
-              lastError: "The frame WebSocket encountered a connection error.",
+              sessionState: finalizingSameSession ? "FINALIZING" : current.sessionState,
+              lastError: finalizingSameSession
+                ? "The frame connection failed after the video ended. Finalizing server-accepted work on the same session."
+                : "The frame WebSocket encountered a connection error.",
             }));
           },
           onClose: () => {
             if (cancelled || intentionalCloseRef.current) return;
+            if (sourceCompleteRef.current && (completionRequestedRef.current || forceCompletionRef.current)) return;
             clearAckTimer();
             inFlightRef.current = false;
+            const finalizingSameSession = requestSameSessionCompletion();
             setMetrics((current) => ({
               ...current,
               connectionState: "offline",
-              lastError: "The frame WebSocket disconnected.",
+              sessionState: finalizingSameSession ? "FINALIZING" : current.sessionState,
+              lastError: finalizingSameSession
+                ? "The frame connection closed after the video ended. Finalizing server-accepted work on the same session."
+                : "The frame WebSocket disconnected.",
             }));
           },
         });
@@ -267,9 +336,61 @@ export function useFrameIngestion({
       inFlightRef.current = false;
       socketRef.current?.close();
       socketRef.current = null;
+      if (activeSessionIdRef.current === sessionId) activeSessionIdRef.current = null;
       if (sessionId) void deleteIngestionSession(sessionId).catch(() => undefined);
     };
-  }, [clearAckTimer, detectorMode, mediaOrigin, retryGeneration, sourceGeneration, sourceMode, sourceReady]);
+  }, [clearAckTimer, detectorMode, mediaOrigin, requestSameSessionCompletion, retryGeneration, sourceGeneration, sourceMode, sourceReady]);
+
+  useEffect(() => {
+    if (!sourceComplete) return;
+    setCompletionState((current) => current === "IDLE" ? "FINALIZING" : current);
+    const sessionId = metrics.sessionId;
+    if (
+      !sessionId ||
+      (metrics.capturedFrames !== metrics.acknowledgedFrames && !forceCompletionRef.current) ||
+      completionRequestedRef.current
+    ) {
+      return;
+    }
+
+    completionRequestedRef.current = true;
+    forceCompletionRef.current = false;
+    setMetrics((current) => ({
+      ...current,
+      sessionState: "FINALIZING",
+      connectionState: current.connectionState === "offline" ? "offline" : "paused",
+    }));
+    void completeIngestionSession(sessionId)
+      .then((completed) => {
+        if (activeSessionIdRef.current !== sessionId) return;
+        setCompletion(completed);
+        setCompletionState("COMPLETE");
+        setIntelligence(completed.latest_result);
+        setMetrics((current) => ({
+          ...current,
+          sessionState: "COMPLETE",
+          connectionState: "stopped",
+          latestFrameId: completed.summary.last_analyzed_frame_id ?? current.latestFrameId,
+          modelStatus: describeModels(
+            completed.summary.segmentation_status,
+            completed.summary.detection_status,
+          ),
+          analysisStatus: completed.summary.inference_state,
+          lastError: null,
+        }));
+      })
+      .catch((completionError: unknown) => {
+        if (activeSessionIdRef.current !== sessionId) return;
+        setCompletionState("ERROR");
+        setMetrics((current) => ({
+          ...current,
+          sessionState: "FINALIZING",
+          lastError: completionError instanceof Error
+            ? completionError.message
+            : "Unable to finalize whole-video findings.",
+        }));
+      });
+  }, [completionRetryGeneration, metrics.acknowledgedFrames, metrics.capturedFrames, metrics.sessionId, sourceComplete]);
 
   useEffect(() => {
     if (!sourceReady || !sourceMode || !mediaOrigin || !captureActive) {
@@ -277,7 +398,9 @@ export function useFrameIngestion({
         setMetrics((current) => ({
           ...current,
           connectionState:
-            current.sessionId && current.connectionState !== "offline"
+            sourceComplete || current.sessionState === "FINALIZING" || current.sessionState === "COMPLETE"
+              ? current.connectionState
+              : current.sessionId && current.connectionState !== "offline"
               ? "paused"
               : current.connectionState,
         }));
@@ -321,6 +444,10 @@ export function useFrameIngestion({
         }
         const frameId = frameIdRef.current++;
         const buffer = await captured.blob.arrayBuffer();
+        if (cancelled || !captureActiveRef.current) {
+          inFlightRef.current = false;
+          return;
+        }
         const metadata: FrameMetadata = {
           type: "frame_metadata",
           frame_id: frameId,
@@ -356,10 +483,14 @@ export function useFrameIngestion({
         ackTimerRef.current = window.setTimeout(() => {
           inFlightRef.current = false;
           expectedFrameIdRef.current = null;
+          const finalizingSameSession = requestSameSessionCompletion();
           setMetrics((current) => ({
             ...current,
             connectionState: "offline",
-            lastError: "Frame acknowledgement timed out.",
+            sessionState: finalizingSameSession ? "FINALIZING" : current.sessionState,
+            lastError: finalizingSameSession
+              ? "The final frame acknowledgement timed out. Finalizing server-accepted work on the same session."
+              : "Frame acknowledgement timed out.",
           }));
         }, INGEST_ACK_TIMEOUT_MS);
       } catch (captureError) {
@@ -394,11 +525,26 @@ export function useFrameIngestion({
       }
       if (intervalId !== null) window.clearInterval(intervalId);
     };
-  }, [captureActive, mediaOrigin, metrics.connectionState, metrics.requestedFps, sourceMode, sourceReady, videoElement]);
+  }, [captureActive, mediaOrigin, metrics.connectionState, metrics.requestedFps, requestSameSessionCompletion, sourceComplete, sourceMode, sourceReady, videoElement]);
 
   return {
     metrics,
     intelligence,
-    retry: () => setRetryGeneration((value) => value + 1),
+    completionState,
+    completion,
+    retry: () => {
+      if (sourceComplete && completionState !== "COMPLETE" && metrics.sessionId) {
+        if (completionState === "FINALIZING" && completionRequestedRef.current) return;
+        completionRequestedRef.current = false;
+        requestSameSessionCompletion();
+        setMetrics((current) => ({
+          ...current,
+          sessionState: "FINALIZING",
+          lastError: null,
+        }));
+        return;
+      }
+      setRetryGeneration((value) => value + 1);
+    },
   };
 }

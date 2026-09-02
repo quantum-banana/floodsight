@@ -12,6 +12,7 @@ import { buildReportText } from "./reportText";
 interface IncidentReportModalProps {
   snapshot: LiveResult | null;
   sessionId: string | null;
+  reportRevision?: string;
   open: boolean;
   onClose: () => void;
 }
@@ -19,11 +20,12 @@ interface IncidentReportModalProps {
 export function IncidentReportModal({
   snapshot,
   sessionId,
+  reportRevision = "current",
   open,
   onClose,
 }: IncidentReportModalProps) {
   const incidentId = snapshot?.incident_id ?? null;
-  const requestKey = sessionId ? `live:${sessionId}` : `demo:${incidentId ?? "none"}`;
+  const requestKey = sessionId ? `live:${sessionId}:${reportRevision}` : `demo:${incidentId ?? "none"}`;
   const [loaded, setLoaded] = useState<{ key: string; report: IncidentReport } | null>(null);
   const [failure, setFailure] = useState<{ key: string; message: string } | null>(null);
   const [copied, setCopied] = useState(false);
@@ -111,26 +113,34 @@ export function IncidentReportModal({
 
 function ReportBody({ report }: { report: IncidentReport }) {
   const stats = report.statistics;
+  const wholeVideo = report.analysis_scope === "WHOLE_VIDEO";
+  const available = (key: string) => !wholeVideo || report.aggregate_availability?.[key] === "AVAILABLE";
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-300/10 bg-amber-300/[0.035] p-3">
-        <div><p className="text-[0.6rem] tracking-wider text-slate-600 uppercase">Backend generated</p><p className="mt-1 font-mono text-xs text-slate-300">{formatTimestamp(report.generated_at_ms)} UTC · Frame {report.generated_from_frame_id ?? "—"}</p></div>
+        <div><p className="text-[0.6rem] tracking-wider text-slate-600 uppercase">{wholeVideo ? "Whole video findings" : "Backend generated"}</p><p className="mt-1 font-mono text-xs text-slate-300">{formatTimestamp(report.generated_at_ms)} UTC · {wholeVideo ? "Last analyzed frame" : "Frame"} {report.generated_from_frame_id ?? "—"}</p></div>
         <OriginBadge origin={report.data_origin} />
       </div>
       <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <ReportMetric label="Severity" value={severityLabel(report.severity)} />
-        <ReportMetric label="Flood coverage" value={`${stats.flooded_area_percent.value}%`} />
-        <ReportMetric label="People" value={stats.people_detected.value} />
-        <ReportMetric label="Vehicles" value={stats.vehicles_detected.value} />
-        <ReportMetric label="Blocked roads" value={stats.blocked_roads.value} />
-        <ReportMetric label="Damaged buildings" value={stats.damaged_buildings.value} />
+        <ReportMetric label="Severity" value={report.severity_established === false ? "Not established" : severityLabel(report.severity)} />
+        <ReportMetric label={wholeVideo ? "Peak flood coverage" : "Flood coverage"} value={available("flooded_area_percent") ? `${stats.flooded_area_percent.value}%` : "Unavailable"} />
+        <ReportMetric label={wholeVideo ? "Peak people" : "People"} value={available("people_detected") ? stats.people_detected.value : "Unavailable"} />
+        <ReportMetric label={wholeVideo ? "Peak vehicles" : "Vehicles"} value={available("vehicles_detected") ? stats.vehicles_detected.value : "Unavailable"} />
+        <ReportMetric label={wholeVideo ? "Peak blocked grid cells" : "Blocked roads"} value={available("blocked_road_cells") ? stats.blocked_roads.value : "Unavailable"} />
+        <ReportMetric label="Damaged buildings" value={available("damaged_buildings") ? stats.damaged_buildings.value : "Unavailable"} />
         <ReportMetric label="Critical zones" value={report.critical_zone_count} />
         <ReportMetric label="Top priority" value={report.highest_priority_zone_name ?? "None"} />
       </div>
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
         <ReportSection title="Priority explanation" text={report.explanation} />
-        <ReportSection title="Relative access summary" text={report.access_summary} />
+        <ReportSection
+          title={wholeVideo ? "Historical relative access observation" : "Relative access summary"}
+          text={wholeVideo ? `Observed during sampled video; verify current conditions. ${report.access_summary}` : report.access_summary}
+        />
       </div>
+      {wholeVideo && report.priorities_truncated && (
+        <p role="note" className="mt-5 rounded-xl border border-amber-300/15 bg-amber-300/[0.05] p-3 text-xs leading-5 text-amber-100">Only the strongest retained priority observations are shown; additional observations were omitted.</p>
+      )}
       {report.model_provenance && (
         <div className="mt-5 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
           <p className="section-label">Model provenance</p>

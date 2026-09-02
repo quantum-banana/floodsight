@@ -204,6 +204,43 @@ def test_priority_keeps_urgency_separate_from_confidence_and_emits_reasons() -> 
     assert result.severity.value == "CRITICAL"
 
 
+def test_priority_does_not_score_or_claim_unavailable_model_evidence() -> None:
+    zone = OperationalZone(
+        zone_id="ZONE-01",
+        grid_cells=["B2"],
+        polygon=grid_cell_polygon("B2"),
+        timestamp_ms=2_000,
+        people_count=0,
+        max_person_confidence=0,
+        vehicle_count=0,
+        flood_coverage_percent=0,
+        pool_coverage_percent=0,
+        building_damage_coverage_percent=0,
+        road_state=RoadState.UNKNOWN,
+        access_status=AccessStatus.UNKNOWN,
+        confidence=0.2,
+        risk_signal=0,
+        temporal_samples=1,
+        sources=[],
+    )
+
+    result = PriorityEngine().prioritize(
+        [zone],
+        detection_evidence_available=False,
+        segmentation_evidence_available=False,
+    )[0]
+
+    codes = {reason.code for reason in result.reasons}
+    assert result.priority_score == 0
+    assert codes == {
+        "PERSON_EVIDENCE_UNAVAILABLE",
+        "SEGMENTATION_EVIDENCE_UNAVAILABLE",
+    }
+    assert "NO_PERSON_EVIDENCE" not in codes
+    assert not any(code.startswith("ACCESS_") for code in codes)
+    assert result.alerts == []
+
+
 def _cell(cell_id: str, state: RoadState = RoadState.CLEAR) -> GridCellEvidence:
     row = ord(cell_id[0]) - ord("A")
     column = int(cell_id[1:]) - 1

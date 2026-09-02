@@ -10,6 +10,7 @@ export type MediaSourceState =
   | "READY"
   | "PLAYING"
   | "PAUSED"
+  | "COMPLETE"
   | "STOPPED"
   | "ERROR";
 
@@ -41,6 +42,7 @@ export interface MediaSourceController {
   pause: () => void;
   resume: () => Promise<void>;
   stop: () => void;
+  seekToPausedTime: (timeSeconds: number) => void;
   onLoadedMetadata: () => void;
   onEnded: () => void;
 }
@@ -186,6 +188,12 @@ export function useMediaSource(initialMode: MediaSourceMode = "VIDEO_FILE"): Med
       return;
     }
 
+    if (mode === "VIDEO_FILE" && state === "COMPLETE") {
+      video.currentTime = 0;
+      setState("READY");
+      setGeneration((value) => value + 1);
+    }
+
     if (mode === "WEBCAM" && !streamRef.current) {
       if (!navigator.mediaDevices?.getUserMedia) {
         setError("This browser does not provide camera access.");
@@ -230,7 +238,7 @@ export function useMediaSource(initialMode: MediaSourceMode = "VIDEO_FILE"): Med
         setState("ERROR");
       }
     }
-  }, [mode]);
+  }, [mode, state]);
 
   const pause = useCallback(() => {
     videoRef.current?.pause();
@@ -254,7 +262,18 @@ export function useMediaSource(initialMode: MediaSourceMode = "VIDEO_FILE"): Med
     setState("STOPPED");
   }, [mode, stopTracks]);
 
-  const onEnded = useCallback(() => setState("STOPPED"), []);
+  const seekToPausedTime = useCallback((timeSeconds: number) => {
+    const video = videoRef.current;
+    if (!video) return;
+    const normalizedTime = Math.max(0, timeSeconds);
+    const targetTime = Number.isFinite(video.duration)
+      ? Math.min(normalizedTime, Math.max(0, video.duration))
+      : normalizedTime;
+    video.pause();
+    video.currentTime = targetTime;
+  }, []);
+
+  const onEnded = useCallback(() => setState("COMPLETE"), []);
   const mediaOrigin =
     mode === "VIDEO_FILE"
       ? "USER_VIDEO_FILE"
@@ -287,6 +306,7 @@ export function useMediaSource(initialMode: MediaSourceMode = "VIDEO_FILE"): Med
     pause,
     resume,
     stop,
+    seekToPausedTime,
     onLoadedMetadata,
     onEnded,
   };

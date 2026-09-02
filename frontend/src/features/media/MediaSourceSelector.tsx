@@ -38,6 +38,7 @@ const operationalState = (state: MediaSourceController["state"]) => ({
   READY: "READY",
   PLAYING: "LIVE",
   PAUSED: "PAUSED",
+  COMPLETE: "FINAL",
   STOPPED: "READY",
   ERROR: "DEGRADED",
 })[state];
@@ -53,6 +54,11 @@ export function MediaSourceSelector({
   );
   const canRetry = ingestion.metrics.connectionState === "offline" || ingestion.metrics.connectionState === "malformed";
   const hasActiveSource = Boolean(media.fileInfo || media.stream) || !["IDLE", "STOPPED"].includes(media.state);
+  const completionFinalizing = ingestion.completionState === "FINALIZING";
+  const finalizingLockMessage = "Whole-video findings are still finalizing. Wait for completion before changing or stopping the source.";
+  const detectorModeLocked = !["IDLE", "READY", "STOPPED"].includes(media.state)
+    || ["FINALIZING", "COMPLETE", "ERROR"].includes(ingestion.completionState);
+  const detectorLockMessage = "Detection profile is locked for this analysis. Stop or choose a new video to change it.";
 
   return (
     <section className="source-control" aria-label="Media source">
@@ -63,6 +69,8 @@ export function MediaSourceSelector({
             type="button"
             aria-pressed={media.mode === item.mode}
             className={media.mode === item.mode ? "source-segment-active" : ""}
+            disabled={completionFinalizing}
+            title={completionFinalizing ? finalizingLockMessage : undefined}
             onClick={() => media.selectMode(item.mode)}
           >
             {item.mode === "VIDEO_FILE" ? <Icon name="play" /> : <Icon name="eye" />}
@@ -72,8 +80,20 @@ export function MediaSourceSelector({
       </div>
 
       <div className="source-actions" aria-label="Actual media controls">
-        <details className="detector-profile">
-          <summary aria-label={`Detection profile: ${detectorModeLabel(detectorMode)}`}>
+        <details
+          className={`detector-profile ${detectorModeLocked ? "detector-profile-locked" : ""}`}
+          onToggle={(event) => {
+            if (detectorModeLocked) event.currentTarget.open = false;
+          }}
+        >
+          <summary
+            aria-label={`Detection profile: ${detectorModeLabel(detectorMode)}`}
+            aria-disabled={detectorModeLocked}
+            title={detectorModeLocked ? detectorLockMessage : undefined}
+            onClick={(event) => {
+              if (detectorModeLocked) event.preventDefault();
+            }}
+          >
             <Icon name="eye" />
             Detection: {detectorModeLabel(detectorMode)}
           </summary>
@@ -83,6 +103,8 @@ export function MediaSourceSelector({
                 key={item.mode}
                 type="button"
                 aria-pressed={detectorMode === item.mode}
+                disabled={detectorModeLocked}
+                title={detectorModeLocked ? detectorLockMessage : undefined}
                 onClick={() => onDetectorModeChange(item.mode)}
               >
                 <span>{item.label}</span>
@@ -100,9 +122,14 @@ export function MediaSourceSelector({
               </span>
             )}
             <label
-              className={`command-button cursor-pointer ${media.fileInfo ? "command-button-ghost" : "command-button-primary"}`}
+              className={`command-button ${completionFinalizing ? "cursor-not-allowed opacity-50" : "cursor-pointer"} ${media.fileInfo ? "command-button-ghost" : "command-button-primary"}`}
               htmlFor="video-file-input"
               aria-label={media.fileInfo ? "Change video" : "Choose video"}
+              aria-disabled={completionFinalizing}
+              title={completionFinalizing ? finalizingLockMessage : undefined}
+              onClick={(event) => {
+                if (completionFinalizing) event.preventDefault();
+              }}
             >
               <Icon name={media.fileInfo ? "reset" : "play"} />
               {media.fileInfo ? "Change" : "Choose video"}
@@ -111,6 +138,7 @@ export function MediaSourceSelector({
               id="video-file-input"
               className="sr-only"
               type="file"
+              disabled={completionFinalizing}
               accept="video/mp4,video/webm,video/ogg,video/*"
               onChange={(event) => {
                 const file = event.target.files?.[0];
@@ -131,6 +159,8 @@ export function MediaSourceSelector({
           <button
             type="button"
             className="command-button command-button-primary"
+            disabled={completionFinalizing}
+            title={completionFinalizing ? finalizingLockMessage : undefined}
             onClick={() => void media.start()}
           >
             <Icon name="play" />{media.mode === "WEBCAM" ? "Start" : "Analyse"}
@@ -138,7 +168,7 @@ export function MediaSourceSelector({
         ) : null}
 
         {hasActiveSource && (
-          <button type="button" className="command-icon-button" onClick={media.stop} aria-label="Stop media" title="Stop"><Icon name="reset" /></button>
+          <button type="button" className="command-icon-button" disabled={completionFinalizing} onClick={media.stop} aria-label="Stop media" title={completionFinalizing ? finalizingLockMessage : "Stop"}><Icon name="reset" /></button>
         )}
         {canRetry && <button type="button" className="command-button command-button-secondary" onClick={ingestion.retry}>Retry</button>}
       </div>

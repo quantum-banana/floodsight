@@ -70,9 +70,71 @@ describe("media source ownership", () => {
     act(() => result.current.stop());
     expect(video.currentTime).toBe(0);
     expect(result.current.state).toBe("STOPPED");
+    expect(result.current.readyForIngestion).toBe(false);
 
     unmount();
     expect(revokeObjectURL).toHaveBeenCalledWith("blob:floodsight-video");
+  });
+
+  it("preserves a completed video for final results and starts a fresh run when analysed again", async () => {
+    const { result, unmount } = renderHook(() => useMediaSource());
+    const video = fakeVideo();
+    const file = new File(["browser-local"], "completed.webm", { type: "video/webm" });
+
+    act(() => result.current.bindVideoElement(video));
+    act(() => expect(result.current.selectFile(file)).toBe(true));
+    act(() => result.current.onLoadedMetadata());
+    const selectedGeneration = result.current.generation;
+
+    act(() => result.current.onEnded());
+
+    expect(result.current.state).toBe("COMPLETE");
+    expect(result.current.readyForIngestion).toBe(true);
+    expect(result.current.isPlaying).toBe(false);
+    expect(revokeObjectURL).not.toHaveBeenCalled();
+
+    video.currentTime = 12.5;
+    await act(async () => result.current.start());
+
+    expect(video.currentTime).toBe(0);
+    expect(result.current.generation).toBe(selectedGeneration + 1);
+    expect(result.current.state).toBe("PLAYING");
+
+    unmount();
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:floodsight-video");
+  });
+
+  it("leaves COMPLETE before replay generation changes while playback is pending", async () => {
+    let resolvePlay: (() => void) | null = null;
+    const { result, unmount } = renderHook(() => useMediaSource());
+    const video = fakeVideo();
+    video.play = vi.fn(() => new Promise<void>((resolve) => {
+      resolvePlay = resolve;
+    }));
+
+    act(() => result.current.bindVideoElement(video));
+    act(() => expect(result.current.selectFile(new File(["video"], "replay.webm", { type: "video/webm" }))).toBe(true));
+    act(() => result.current.onLoadedMetadata());
+    const firstGeneration = result.current.generation;
+    act(() => result.current.onEnded());
+
+    let replay: Promise<void> | undefined;
+    act(() => {
+      replay = result.current.start();
+    });
+
+    expect(result.current.state).toBe("READY");
+    expect(result.current.readyForIngestion).toBe(true);
+    expect(result.current.generation).toBe(firstGeneration + 1);
+    expect(result.current.state).not.toBe("COMPLETE");
+
+    await act(async () => {
+      resolvePlay?.();
+      await replay;
+    });
+    expect(result.current.state).toBe("PLAYING");
+    expect(result.current.isPlaying).toBe(true);
+    unmount();
   });
 
   it("rejects invalid file types without creating an object URL", () => {

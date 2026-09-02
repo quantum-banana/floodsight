@@ -70,4 +70,8 @@ export interface IncidentReport {
   reason_codes?: string[];
   route?: LiveResult["route"];
   model_provenance?: Record<string, string>;
+  analysis_scope?: "LATEST_FRAME" | "WHOLE_VIDEO";
+  aggregate_availability?: Record<string, string>;
+  severity_established?: boolean;
+  priorities_truncated?: boolean;
 }

@@ -5,12 +5,19 @@ import type {
   DetectorInferenceMode,
   IngestionSession,
   MediaOrigin,
+  VideoAnalysisComplete,
 } from "../types/ingestion";
 import { ApiError } from "./api";
 
-async function ingestionRequest<T>(path: string, init: RequestInit): Promise<T> {
+const VIDEO_COMPLETION_TIMEOUT_MS = 60_000;
+
+async function ingestionRequest<T>(
+  path: string,
+  init: RequestInit,
+  timeoutMs = API_TIMEOUT_MS,
+): Promise<T> {
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(`${API_BASE_URL}${path}`, {
       ...init,
@@ -62,6 +69,14 @@ export function deleteIngestionSession(sessionId: string): Promise<void> {
   return ingestionRequest<void>(
     `/api/ingest/sessions/${encodeURIComponent(sessionId)}`,
     { method: "DELETE", keepalive: true },
+  );
+}
+
+export function completeIngestionSession(sessionId: string): Promise<VideoAnalysisComplete> {
+  return ingestionRequest<VideoAnalysisComplete>(
+    `/api/ingest/sessions/${encodeURIComponent(sessionId)}/complete`,
+    { method: "POST" },
+    VIDEO_COMPLETION_TIMEOUT_MS,
   );
 }
 

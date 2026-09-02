@@ -5,8 +5,20 @@ from pydantic import Field, model_validator
 
 from app.inference.contracts import DetectorInferenceMode
 from app.schemas.base import ContractModel
-from app.schemas.live_result import DataOrigin, LiveResult, SourceMode
+from app.schemas.live_result import (
+    DataOrigin,
+    DetectionCategory,
+    LiveResult,
+    MetricUnit,
+    Route,
+    Severity,
+    SourceMode,
+    Zone,
+)
 from app.schemas.model_status import InferenceState, ModelStatus
+
+MAX_VIDEO_PRIORITY_OBSERVATIONS = 64
+MAX_VIDEO_DETECTED_CLASSES = 64
 
 
 class MediaOrigin(StrEnum):
@@ -18,6 +30,8 @@ class IngestionSessionState(StrEnum):
     READY = "READY"
     ACTIVE = "ACTIVE"
     IDLE = "IDLE"
+    FINALIZING = "FINALIZING"
+    COMPLETE = "COMPLETE"
     EXPIRED = "EXPIRED"
 
 
@@ -124,3 +138,103 @@ class FrameIntelligence(ContractModel):
     frame_id: int = Field(ge=0)
     sequence: int = Field(ge=0)
     result: LiveResult
+
+
+class AggregateMetricAvailability(StrEnum):
+    AVAILABLE = "AVAILABLE"
+    MODEL_UNAVAILABLE = "MODEL_UNAVAILABLE"
+    NOT_SUPPORTED = "NOT_SUPPORTED"
+    NO_ANALYZED_FRAMES = "NO_ANALYZED_FRAMES"
+
+
+class AggregateMetricAggregation(StrEnum):
+    PEAK_SIMULTANEOUS_DIRECT_DETECTIONS = "PEAK_SIMULTANEOUS_DIRECT_DETECTIONS"
+    PEAK_FRESH_SEGMENTATION = "PEAK_FRESH_SEGMENTATION"
+    NOT_APPLICABLE = "NOT_APPLICABLE"
+
+
+class AggregateMetric(ContractModel):
+    value: float | None = Field(default=None, ge=0)
+    unit: MetricUnit
+    availability: AggregateMetricAvailability
+    aggregation: AggregateMetricAggregation
+    supporting_frame_count: int = Field(ge=0)
+    confidence: float | None = Field(default=None, ge=0, le=1)
+    data_origin: Literal[DataOrigin.DERIVED_ANALYTIC] = DataOrigin.DERIVED_ANALYTIC
+
+    @model_validator(mode="after")
+    def validate_availability(self) -> Self:
+        if self.availability is AggregateMetricAvailability.AVAILABLE and self.value is None:
+            raise ValueError("available aggregate metrics require a value")
+        if (
+            self.availability is not AggregateMetricAvailability.AVAILABLE
+            and self.value is not None
+        ):
+            raise ValueError("unavailable aggregate metrics cannot contain a value")
+        return self
+
+
+class VideoAnalysisStatistics(ContractModel):
+    flooded_area_percent: AggregateMetric
+    people_detected: AggregateMetric
+    vehicles_detected: AggregateMetric
+    blocked_road_cells: AggregateMetric
+    damaged_buildings: AggregateMetric
+    building_damage_coverage_percent: AggregateMetric
+
+
+class DetectedClassFinding(ContractModel):
+    label: str = Field(min_length=1)
+    category: DetectionCategory
+    peak_simultaneous_count: int = Field(ge=1)
+    max_confidence: float = Field(ge=0, le=1)
+    supporting_frame_count: int = Field(ge=1)
+    data_origin: Literal[DataOrigin.DERIVED_ANALYTIC] = DataOrigin.DERIVED_ANALYTIC
+
+
+class VideoPriorityObservation(ContractModel):
+    zone: Zone
+    source_frame_id: int = Field(ge=0)
+    media_time_ms: int = Field(ge=0)
+    supporting_update_count: int = Field(ge=1)
+    segmentation_evidence_available: bool
+    detection_evidence_available: bool
+    building_damage_count_availability: AggregateMetricAvailability
+    associated_route: Route | None = None
+    data_origin: Literal[DataOrigin.DERIVED_ANALYTIC] = DataOrigin.DERIVED_ANALYTIC
+
+
+class VideoAnalysisSummary(ContractModel):
+    session_id: str = Field(min_length=20)
+    generated_at_ms: int = Field(ge=0)
+    frames_accepted: int = Field(ge=0)
+    frames_analyzed: int = Field(ge=0)
+    frames_dropped: int = Field(ge=0)
+    first_analyzed_frame_id: int | None = Field(default=None, ge=0)
+    last_analyzed_frame_id: int | None = Field(default=None, ge=0)
+    first_media_time_ms: int | None = Field(default=None, ge=0)
+    last_media_time_ms: int | None = Field(default=None, ge=0)
+    statistics: VideoAnalysisStatistics
+    detected_classes: list[DetectedClassFinding] = Field(
+        max_length=MAX_VIDEO_DETECTED_CLASSES
+    )
+    detected_classes_truncated: bool = False
+    priorities: list[VideoPriorityObservation] = Field(
+        max_length=MAX_VIDEO_PRIORITY_OBSERVATIONS
+    )
+    priorities_truncated: bool = False
+    highest_priority_zone_id: str | None
+    incident_severity: Severity | None
+    segmentation_status: ModelStatus
+    detection_status: ModelStatus
+    inference_state: InferenceState
+    responsible_ai_statement: str = Field(min_length=1)
+    data_origin: Literal[DataOrigin.DERIVED_ANALYTIC] = DataOrigin.DERIVED_ANALYTIC
+
+
+class VideoAnalysisComplete(ContractModel):
+    type: Literal["video_analysis_complete"] = "video_analysis_complete"
+    session_id: str = Field(min_length=20)
+    state: Literal[IngestionSessionState.COMPLETE] = IngestionSessionState.COMPLETE
+    summary: VideoAnalysisSummary
+    latest_result: LiveResult | None

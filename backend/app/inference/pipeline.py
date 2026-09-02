@@ -331,7 +331,11 @@ class InferencePipeline:
             ),
         )
         operational = state.tracker.update(candidates, timestamp_ms)
-        zones = self.priority_engine.prioritize(operational)
+        zones = self.priority_engine.prioritize(
+            operational,
+            detection_evidence_available=detection is not None,
+            segmentation_evidence_available=segmentation is not None,
+        )
         graph = self.accessibility_engine.build(cells)
         roads = self.accessibility_engine.as_live_roads(graph)
         route = None

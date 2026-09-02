@@ -1,0 +1,198 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://floodsight.local/schemas/video-analysis-complete.schema.json",
+  "title": "FloodSight completed video analysis",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["type", "session_id", "state", "summary", "latest_result"],
+  "properties": {
+    "type": { "const": "video_analysis_complete" },
+    "session_id": { "type": "string", "minLength": 20 },
+    "state": { "const": "COMPLETE" },
+    "summary": { "$ref": "#/$defs/summary" },
+    "latest_result": {
+      "oneOf": [{ "$ref": "live-result.schema.json" }, { "type": "null" }]
+    }
+  },
+  "$defs": {
+    "availability": {
+      "type": "string",
+      "enum": ["AVAILABLE", "MODEL_UNAVAILABLE", "NOT_SUPPORTED", "NO_ANALYZED_FRAMES"]
+    },
+    "aggregation": {
+      "type": "string",
+      "enum": [
+        "PEAK_SIMULTANEOUS_DIRECT_DETECTIONS",
+        "PEAK_FRESH_SEGMENTATION",
+        "NOT_APPLICABLE"
+      ]
+    },
+    "aggregateMetric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "value",
+        "unit",
+        "availability",
+        "aggregation",
+        "supporting_frame_count",
+        "confidence",
+        "data_origin"
+      ],
+      "properties": {
+        "value": { "type": ["number", "null"], "minimum": 0 },
+        "unit": { "type": "string", "enum": ["count", "percent"] },
+        "availability": { "$ref": "#/$defs/availability" },
+        "aggregation": { "$ref": "#/$defs/aggregation" },
+        "supporting_frame_count": { "type": "integer", "minimum": 0 },
+        "confidence": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "data_origin": { "const": "DERIVED_ANALYTIC" }
+      }
+    },
+    "statistics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "flooded_area_percent",
+        "people_detected",
+        "vehicles_detected",
+        "blocked_road_cells",
+        "damaged_buildings",
+        "building_damage_coverage_percent"
+      ],
+      "properties": {
+        "flooded_area_percent": { "$ref": "#/$defs/aggregateMetric" },
+        "people_detected": { "$ref": "#/$defs/aggregateMetric" },
+        "vehicles_detected": { "$ref": "#/$defs/aggregateMetric" },
+        "blocked_road_cells": { "$ref": "#/$defs/aggregateMetric" },
+        "damaged_buildings": { "$ref": "#/$defs/aggregateMetric" },
+        "building_damage_coverage_percent": { "$ref": "#/$defs/aggregateMetric" }
+      }
+    },
+    "detectedClass": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "label",
+        "category",
+        "peak_simultaneous_count",
+        "max_confidence",
+        "supporting_frame_count",
+        "data_origin"
+      ],
+      "properties": {
+        "label": { "type": "string", "minLength": 1 },
+        "category": { "type": "string", "enum": ["PERSON", "VEHICLE", "OTHER"] },
+        "peak_simultaneous_count": { "type": "integer", "minimum": 1 },
+        "max_confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "supporting_frame_count": { "type": "integer", "minimum": 1 },
+        "data_origin": { "const": "DERIVED_ANALYTIC" }
+      }
+    },
+    "priority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "zone",
+        "source_frame_id",
+        "media_time_ms",
+        "supporting_update_count",
+        "segmentation_evidence_available",
+        "detection_evidence_available",
+        "building_damage_count_availability",
+        "associated_route",
+        "data_origin"
+      ],
+      "properties": {
+        "zone": { "$ref": "live-result.schema.json#/$defs/zone" },
+        "source_frame_id": { "type": "integer", "minimum": 0 },
+        "media_time_ms": { "type": "integer", "minimum": 0 },
+        "supporting_update_count": { "type": "integer", "minimum": 1 },
+        "segmentation_evidence_available": { "type": "boolean" },
+        "detection_evidence_available": { "type": "boolean" },
+        "building_damage_count_availability": { "$ref": "#/$defs/availability" },
+        "associated_route": {
+          "oneOf": [
+            { "$ref": "live-result.schema.json#/$defs/route" },
+            { "type": "null" }
+          ]
+        },
+        "data_origin": { "const": "DERIVED_ANALYTIC" }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "session_id",
+        "generated_at_ms",
+        "frames_accepted",
+        "frames_analyzed",
+        "frames_dropped",
+        "first_analyzed_frame_id",
+        "last_analyzed_frame_id",
+        "first_media_time_ms",
+        "last_media_time_ms",
+        "statistics",
+        "detected_classes",
+        "detected_classes_truncated",
+        "priorities",
+        "priorities_truncated",
+        "highest_priority_zone_id",
+        "incident_severity",
+        "segmentation_status",
+        "detection_status",
+        "inference_state",
+        "responsible_ai_statement",
+        "data_origin"
+      ],
+      "properties": {
+        "session_id": { "type": "string", "minLength": 20 },
+        "generated_at_ms": { "type": "integer", "minimum": 0 },
+        "frames_accepted": { "type": "integer", "minimum": 0 },
+        "frames_analyzed": { "type": "integer", "minimum": 0 },
+        "frames_dropped": { "type": "integer", "minimum": 0 },
+        "first_analyzed_frame_id": { "type": ["integer", "null"], "minimum": 0 },
+        "last_analyzed_frame_id": { "type": ["integer", "null"], "minimum": 0 },
+        "first_media_time_ms": { "type": ["integer", "null"], "minimum": 0 },
+        "last_media_time_ms": { "type": ["integer", "null"], "minimum": 0 },
+        "statistics": { "$ref": "#/$defs/statistics" },
+        "detected_classes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/detectedClass" },
+          "maxItems": 64
+        },
+        "detected_classes_truncated": { "type": "boolean" },
+        "priorities": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/priority" },
+          "maxItems": 64
+        },
+        "priorities_truncated": { "type": "boolean" },
+        "highest_priority_zone_id": { "type": ["string", "null"] },
+        "incident_severity": {
+          "oneOf": [
+            { "$ref": "live-result.schema.json#/$defs/severity" },
+            { "type": "null" }
+          ]
+        },
+        "segmentation_status": { "$ref": "live-result.schema.json#/$defs/modelStatus" },
+        "detection_status": { "$ref": "live-result.schema.json#/$defs/modelStatus" },
+        "inference_state": {
+          "type": "string",
+          "enum": [
+            "CONNECTING",
+            "LIVE",
+            "DEGRADED",
+            "MODEL_LOADING",
+            "MODEL_UNAVAILABLE",
+            "SIMULATED_FALLBACK",
+            "ERROR"
+          ]
+        },
+        "responsible_ai_statement": { "type": "string", "minLength": 1 },
+        "data_origin": { "const": "DERIVED_ANALYTIC" }
+      }
+    }
+  }
+}

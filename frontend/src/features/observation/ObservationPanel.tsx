@@ -43,6 +43,68 @@ interface ActualObservationProps extends ObservationPanelProps {
   onSegmentationOpacityChange: (value: number) => void;
 }
 
+const formatMediaTime = (mediaTimeMs: number) => {
+  const totalSeconds = Math.max(0, Math.floor(mediaTimeMs / 1_000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+};
+
+function pendingObservationState(
+  metrics: FrameIngestionController["metrics"],
+  mediaState: MediaSourceState,
+) {
+  if (metrics.analysisStatus === "MODEL_UNAVAILABLE") {
+    return {
+      tone: "critical",
+      title: "MODEL_UNAVAILABLE",
+      detail: "Bounding boxes require detection evidence, while rescue priorities require supported detection and/or segmentation evidence. No simulated output is substituted for this media.",
+    };
+  }
+  if (metrics.analysisStatus === "ERROR" || metrics.connectionState === "offline" || metrics.connectionState === "malformed") {
+    return {
+      tone: "critical",
+      title: "Analysis unavailable",
+      detail: metrics.lastError ?? "No verified intelligence update is available.",
+    };
+  }
+  if (metrics.analysisStatus === "MODEL_LOADING") {
+    return {
+      tone: "warning",
+      title: "Models loading",
+      detail: "The first intelligence update will appear after the configured models are ready.",
+    };
+  }
+  if (mediaState === "PAUSED") {
+    return {
+      tone: "warning",
+      title: "Analysis paused before first intelligence",
+      detail: "Resume the media to submit a frame for analysis.",
+    };
+  }
+  if (mediaState === "COMPLETE") {
+    return {
+      tone: "neutral",
+      title: "Analysis complete",
+      detail: "The video ended before a verified intelligence update was available.",
+    };
+  }
+  if (metrics.acknowledgedFrames > 0) {
+    return {
+      tone: "neutral",
+      title: "Frame accepted",
+      detail: "Waiting for the first model intelligence update.",
+    };
+  }
+  return {
+    tone: "neutral",
+    title: "Awaiting intelligence",
+    detail: mediaState === "PLAYING"
+      ? "Waiting for the first frame acknowledgement."
+      : "Start media analysis to submit frames.",
+  };
+}
+
 function ActualObservation({
   layers,
   selectedZoneId,
@@ -62,7 +124,13 @@ function ActualObservation({
 }: ActualObservationProps) {
   const intelligence = ingestion.intelligence;
   const isSimulatedFallback = intelligence?.data_origin === "DEMO_SIMULATED";
-  const stateLabel = mediaState === "PAUSED"
+  const pending = pendingObservationState(ingestion.metrics, mediaState);
+  const completedMediaTime = ingestion.completionState === "COMPLETE"
+    ? ingestion.completion?.summary.last_media_time_ms ?? null
+    : null;
+  const stateLabel = mediaState === "COMPLETE"
+    ? "FINAL"
+    : mediaState === "PAUSED"
     ? "PAUSED"
     : intelligence
     ? "LIVE"
@@ -97,6 +165,14 @@ function ActualObservation({
             segmentationOpacity={segmentationOpacity}
             simulated={isSimulatedFallback}
           />
+        )}
+
+        {intelligence && (
+          <span className={`canvas-intelligence-badge ${isSimulatedFallback ? "canvas-intelligence-badge-simulated" : ""}`}>
+            {completedMediaTime === null
+              ? `${isSimulatedFallback ? "DEMO_SIMULATED" : "BACKEND INTELLIGENCE"} · FRAME ${intelligence.frame_id}`
+              : `LAST ANALYZED FRAME ${intelligence.frame_id} · VIDEO ${formatMediaTime(completedMediaTime)}`}
+          </span>
         )}
 
         <div className="canvas-toolbar">
@@ -147,7 +223,11 @@ function ActualObservation({
           </div>
         </details>
       ) : (
-        <div className="canvas-awaiting" role="status">Awaiting intelligence</div>
+        <div className={`canvas-awaiting canvas-awaiting-${pending.tone}`} role="status" aria-live="polite">
+          <strong>{pending.title}</strong>
+          <span>{pending.detail}</span>
+          {ingestion.metrics.analysisStatus !== "AWAITING_FRAME" && <code>{ingestion.metrics.modelStatus}</code>}
+        </div>
       )}
     </section>
   );

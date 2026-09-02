@@ -29,7 +29,10 @@
       "type": "string",
       "enum": ["STANDARD", "AERIAL", "AERIAL_HIGH_RECALL"]
     },
-    "state": { "type": "string", "enum": ["READY", "ACTIVE", "IDLE", "EXPIRED"] },
+    "state": {
+      "type": "string",
+      "enum": ["READY", "ACTIVE", "IDLE", "FINALIZING", "COMPLETE", "EXPIRED"]
+    },
     "created_at_ms": { "type": "integer", "minimum": 0 },
     "last_activity_at_ms": { "type": "integer", "minimum": 0 },
     "expires_at_ms": { "type": "integer", "minimum": 0 },

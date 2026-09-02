@@ -1,146 +1,253 @@
 # FloodSight
 
-**From Drone Pixels to Rescue Decisions**
+### From drone observations to explainable flood-response decisions
 
-FloodSight is a flood-response decision-intelligence platform. It turns drone or local-video observations into traceable semantic evidence, detections, rescue zones, explainable priority rankings, relative access routes, events, and incident reports. It supports trained emergency personnel; it does not autonomously make life-critical decisions.
+FloodSight is a flood-response decision-intelligence website for emergency command teams. It analyzes uploaded drone video or a live webcam feed and converts visual observations into traceable evidence: detected people and vehicles, flood and damage indicators when the required model is available, rescue zones, explainable priority rankings, relative access routes, and a final whole-video incident summary.
 
-This branch contains the parallel application-integration path. It preserves the deterministic FS-001 simulation and the isolated Phase 3 dataset/training work while connecting application-ready model adapters to the same video-file and webcam pipeline.
+> [!IMPORTANT]
+> FloodSight is a decision-support tool for trained emergency personnel. It does not autonomously make life-critical decisions. All priorities and routes must be reviewed against current field information.
 
-## Application pipeline
+## What the website does
 
-```text
-video file / webcam
-        ↓ bounded JPEG capture (browser)
-FastAPI ingestion + quality acknowledgement
-        ↓ latest-frame inference worker (bounded, no raw-frame persistence)
-SegFormer adapter ─┐
-YOLO adapter ──────┼→ semantic/detection fusion
-                   ↓
-          deterministic 4×4 evidence grid
-                   ↓
-     rescue-zone generation + temporal tracking
-                   ↓
-       explainable 0–100 urgency ranking
-                   ↓
-       relative accessibility graph + routing
-                   ↓
-REST/WebSocket backend state → command-centre UI/report
+The command-centre interface lets an operator:
+
+- Upload and analyze a local flood-response video.
+- Use a webcam as a live observation source.
+- View model detections as bounding boxes over the actual media.
+- View semantic flood, road, building-damage, and rescue-zone overlays when supporting evidence is available.
+- See people, vehicles, blocked-road evidence, flood coverage, damage coverage, incident severity, and model availability.
+- Review explainable rescue priorities, including the evidence and score behind each ranked zone.
+- Inspect relative image-space access routes and alternatives.
+- Receive a final findings table after the complete video has been analyzed.
+- Generate an incident report from backend-computed intelligence.
+- Run an explicitly labelled deterministic demo when real model artifacts are not configured.
+
+The final findings are aggregated across all analyzed video samples, not only the last frame. Earlier high-priority observations are retained with their source frame and video timestamp.
+
+## Analysis flow
+
+```mermaid
+flowchart LR
+    A[Video file or webcam] --> B[Bounded browser frame capture]
+    B --> C[FastAPI ingestion and quality checks]
+    C --> D[SegFormer semantic analysis]
+    C --> E[YOLO object detection]
+    D --> F[Temporal evidence fusion]
+    E --> F
+    F --> G[Rescue zones and priority scoring]
+    G --> H[Relative routing]
+    H --> I[Command-centre overlays and reports]
+    G --> J[Whole-video final findings]
 ```
 
-The backend is the source of truth for zones, scores, routes, events, and reports. The frontend renders those contracts and never recalculates operational analytics. Frame acknowledgements and intelligence updates are separate WebSocket messages, so slow inference cannot create an unbounded capture queue.
+Frame acknowledgements and intelligence updates use separate WebSocket messages. The backend maintains bounded latest-frame work rather than allowing an unbounded queue, and raw video frames are not persisted by the ingestion pipeline.
 
-## Model integration and honest fallback
+## Core capabilities
 
-The model registry is [configs/models/registry.json](configs/models/registry.json). Artifact locations come only from environment variables and are never returned to the UI:
+### Visual intelligence
 
-- `FLOODSIGHT_SEGMENTATION_CHECKPOINT`: H100-produced FloodSight SegFormer-B2 checkpoint or compatible local Hugging Face directory;
-- `FLOODSIGHT_DETECTION_CHECKPOINT`: final FloodSight/VisDrone YOLO checkpoint slot, disabled until a verified artifact is supplied;
-- `FLOODSIGHT_DETECTION_FALLBACK_CHECKPOINT`: explicitly labelled pretrained COCO fallback, not the final VisDrone model.
+- YOLO-based person and vehicle detection with original-image bounding boxes.
+- SegFormer-based semantic evidence for flood, roads, buildings, vegetation, terrain, pools, and building damage.
+- Distinct flooded-road, blocked-road, clear-road, and unknown-road states.
+- Detection profiles for standard, aerial, and aerial high-recall observation.
 
-Missing or incompatible artifacts do not silently produce detections. The API reports `MODEL_UNAVAILABLE`, `DEGRADED`, `REAL`, `FALLBACK`, or `SIMULATED` model state. PyTorch, Transformers, and Ultralytics are optional inference dependencies; the API and FS-001 simulation remain runnable without them.
+### Decision intelligence
 
-Actual-media sessions expose `STANDARD`, `AERIAL`, and `AERIAL_HIGH_RECALL` inference modes. The
-high-recall fallback combines the standard full-frame pass, the existing 2x2 aerial pass, and
-deterministic 3x3 overlapping tiles. Its optional SegFormer-guided crop can trigger one extra YOLO
-inference, but semantic evidence alone can never create a detection. All accepted detections remain
-honestly labelled `PRETRAINED_FALLBACK` with their original COCO source class and confidence.
+- Deterministic evidence-grid fusion and rescue-zone generation.
+- Temporal tracking with bounded history, decay, and stable zone identities.
+- Explainable 0-100 priority scoring with individual reason contributions.
+- Relative accessibility graphs, primary routes, and alternatives.
+- Whole-video aggregation of peak observations, detected classes, strongest rescue priorities, and evidence availability.
 
-The segmentation adapter preserves the frozen FloodSight taxonomy in `shared/taxonomy/segmentation-taxonomy-v2.yaml`. `pool` is rendered distinctly and is excluded from flood evidence. Road states remain distinct (`CLEAR`, `FLOODED`, `BLOCKED`, `UNKNOWN`). Unknown final-model detection labels are errors; the pretrained fallback retains its original source class while mapping only documented application categories.
+### Honest evidence provenance
 
-## Provenance
+FloodSight keeps the origin of each value visible and structurally distinct:
 
-Contracts and UI distinguish:
+| Provenance | Meaning |
+| --- | --- |
+| `REAL_ML_OUTPUT` | Direct output from an active segmentation or detection model |
+| `DERIVED_ANALYTIC` | Zones, scores, routes, fusion, quality metrics, and reports derived from evidence |
+| `GIS_EXTERNAL_DATA` | Evidence from a genuinely connected geographic data source |
+| `DEMO_SIMULATED` | Explicit deterministic demonstration data |
+| `HUMAN_VERIFIED` | Evidence confirmed through a human review workflow |
 
-- `REAL_ML_OUTPUT`: direct segmentation or detection model output;
-- `DERIVED_ANALYTIC`: fusion, grid evidence, zones, temporal state, scoring, routing, quality metrics, and reports derived from supplied evidence;
-- `GIS_EXTERNAL_DATA`: external geographic evidence when genuinely connected;
-- `DEMO_SIMULATED`: the explicit FS-001 deterministic replay or an explicitly configured simulated adapter;
-- `HUMAN_VERIFIED`: a value confirmed through a human workflow.
+Missing models never silently produce simulated operational results. The UI displays `MODEL_UNAVAILABLE`, `DEGRADED`, or the applicable real/fallback state for each capability.
 
-Confidence and urgency are separate. Confidence describes evidence reliability; urgency describes operational priority and is never discounted merely because confidence is lower. Semantic building-damage coverage is not presented as a building-instance count. Relative routes do not claim metres, travel time, or GIS accuracy.
+## Technology stack
 
-## Setup
+- Frontend: React, TypeScript, Vite, Tailwind CSS
+- Backend: Python, FastAPI, REST, WebSockets
+- Machine learning: SegFormer, YOLO, PyTorch, Transformers, Ultralytics
+- Intelligence: temporal scene fusion, rescue-zone generation, explainable scoring, relative routing
+- Validation: Pytest, Ruff, Vitest, ESLint, TypeScript
 
-Prerequisites: Python 3.11+, Node.js 20.19+/22.12+, npm, and a modern browser. CUDA-capable inference additionally requires a compatible NVIDIA driver and inference packages.
+## Start the website locally
 
-Windows PowerShell:
+### Prerequisites
+
+- Git
+- Python 3.11 or newer
+- Node.js 20.19+ or 22.12+
+- npm
+- A modern browser
+
+A CUDA-capable NVIDIA GPU is optional but recommended for local real-model inference.
+
+### Windows PowerShell
 
 ```powershell
+git clone https://github.com/quantum-banana/floodsight.git
+cd floodsight
+
 Set-ExecutionPolicy -Scope Process Bypass
 Copy-Item .env.example .env
 Copy-Item frontend\.env.example frontend\.env.local
+
 .\scripts\setup.ps1
-
-# Install only when local model inference is required:
-.\.venv\Scripts\python -m pip install -e ".\backend[inference]"
-
 .\scripts\dev.ps1
 ```
 
-Linux/macOS:
+### Linux or macOS
 
 ```bash
+git clone https://github.com/quantum-banana/floodsight.git
+cd floodsight
+
 cp .env.example .env
 cp frontend/.env.example frontend/.env.local
 chmod +x scripts/*.sh
+
 ./scripts/setup.sh
-
-# Install only when local model inference is required:
-./.venv/bin/python -m pip install -e './backend[inference]'
-
 ./scripts/dev.sh
 ```
 
-Open the command centre at `http://127.0.0.1:5173/`, diagnostics at `http://127.0.0.1:5173/system`, and API documentation at `http://127.0.0.1:8000/docs`.
+After startup, open:
 
-## Live API
+| Service | Address |
+| --- | --- |
+| FloodSight command centre | [http://localhost:5173](http://localhost:5173) |
+| System diagnostics | [http://localhost:5173/system](http://localhost:5173/system) |
+| Backend API | [http://localhost:8000](http://localhost:8000) |
+| Interactive API documentation | [http://localhost:8000/docs](http://localhost:8000/docs) |
+
+Press `Ctrl+C` in the development terminal to stop both services.
+
+### Start the services manually
+
+If dependencies are already installed, use two terminals from the repository root.
+
+Terminal 1 - backend:
+
+```powershell
+Set-Location backend
+..\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+Terminal 2 - frontend:
+
+```powershell
+Set-Location frontend
+npm run dev -- --host 127.0.0.1
+```
+
+## Configure real model inference
+
+The API and the labelled FS-001 demo run without local model artifacts. Real media analysis requires compatible model checkpoints outside the Git repository.
+
+1. Install optional inference dependencies:
+
+   ```powershell
+   .\.venv\Scripts\python.exe -m pip install -e ".\backend[inference]"
+   ```
+
+2. Set the applicable paths in `.env`:
+
+   ```dotenv
+   FLOODSIGHT_SEGMENTATION_CHECKPOINT=D:/FloodSight-Models/segformer-checkpoint
+   FLOODSIGHT_DETECTION_CHECKPOINT=D:/FloodSight-Models/floodsight-yolo.pt
+   FLOODSIGHT_DETECTION_FALLBACK_CHECKPOINT=D:/FloodSight-Models/yolo-coco-fallback.pt
+   ```
+
+3. Restart the backend and check [http://localhost:5173/system](http://localhost:5173/system).
+
+The model registry is stored at [`configs/models/registry.json`](configs/models/registry.json). Artifact paths and datasets must remain outside Git. A pretrained COCO fallback is visibly labelled as fallback evidence and is not presented as the final FloodSight/VisDrone detector.
+
+## Analyze a video
+
+1. Open the command centre.
+2. Select **Video file** and choose a local video.
+3. Choose the appropriate detection profile.
+4. Start playback and allow the video to reach its natural end.
+5. Wait while the interface changes from **Finalising** to **Complete**.
+6. Review **Final video findings** in the right-hand panel.
+
+The final panel shows analyzed-frame counts, available peak statistics, detected object classes, incident severity, and rescue priorities retained from anywhere in the video. Metrics whose supporting model was unavailable remain clearly marked **Unavailable** instead of displaying invented zeroes.
+
+## Main API endpoints
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| `GET` | `/api/models/status` | Sanitized model mode, version, device, latency, and availability |
-| `POST` | `/api/ingest/sessions` | Create a video-file or webcam session |
-| `GET` | `/api/ingest/sessions/{session_id}` | Read bounded counters and session state |
-| `DELETE` | `/api/ingest/sessions/{session_id}` | Stop and forget a session |
-| `GET` | `/api/ingest/sessions/{session_id}/intelligence` | Latest backend-computed intelligence |
-| `GET` | `/api/ingest/sessions/{session_id}/report` | Backend-generated report from the latest intelligence |
-| `WS` | `/ws/ingest/sessions/{session_id}/frames` | Frame metadata/binary input, `frame_result` acknowledgements, and ordered `frame_intelligence` updates |
+| `GET` | `/health` | Backend health check |
+| `GET` | `/api/models/status` | Sanitized model status, mode, device, and availability |
+| `POST` | `/api/ingest/sessions` | Create a bounded video or webcam ingestion session |
+| `GET` | `/api/ingest/sessions/{session_id}` | Read session state and counters |
+| `POST` | `/api/ingest/sessions/{session_id}/complete` | Finalize a video and return whole-video findings |
+| `GET` | `/api/ingest/sessions/{session_id}/intelligence` | Read the latest frame intelligence |
+| `GET` | `/api/ingest/sessions/{session_id}/report` | Generate the current or final incident report |
+| `DELETE` | `/api/ingest/sessions/{session_id}` | Stop and remove an ingestion session |
+| `WS` | `/ws/ingest/sessions/{session_id}/frames` | Send frame metadata/binary data and receive acknowledgements/intelligence |
 
-The server accepts one metadata message followed by one JPEG binary message. The browser waits only for the lightweight `frame_result` acknowledgement before capturing another frame. The backend inference coordinator independently keeps at most the latest pending frame per session.
+## Project structure
 
-## Decision intelligence
-
-- Segmentation and detection results are normalized to original image coordinates before fusion.
-- Evidence is assigned deterministically to a 4×4 grid (`A1` through `D4`); adjacent candidate cells merge into zones.
-- High-recall temporal tracking uses rolling evidence, stable zone and object IDs, bounded history,
-  decay, and TTL expiry. Object tracks begin only from model detections. Direct `DETECTED` evidence remains
-  `REAL_ML_OUTPUT`; missed-frame `TRACK_PERSISTED` evidence is visibly `DERIVED_ANALYTIC` and uses
-  separate track confidence and real-confirmation persistence. High-confidence person evidence can
-  escalate immediately rather than waiting for smoothing.
-- Priority reasons expose their individual contributions. Pool pixels do not increase flood urgency.
-- Accessibility edges are enabled, degraded, uncertain, or excluded when blocked. Routing uses relative image-space cost and emits an alternative when one exists.
-- Route changes and significant evidence changes become backend events.
-
-## Simulation and datasets
-
-FS-001 remains a six-snapshot, visibly `DEMO_SIMULATED` replay and does not depend on model artifacts. Actual media mode never substitutes FS-001 analytics while inference is loading or unavailable.
-
-Dataset tooling remains isolated in `.venv-datasets`. Set `FLOODSIGHT_DATA_ROOT` and `FLOODSIGHT_DATA_CACHE` to external locations and read `docs/DATASETS.md`, `docs/TAXONOMY.md`, and `docs/DATASET_SERVER_RUNBOOK.md`. Synthetic fixtures establish code readiness, not real-data verification. The parallel integration does not change training code, mappings, taxonomies, datasets, or checkpoints.
+```text
+floodsight/
+|-- backend/          FastAPI application, inference adapters, and intelligence services
+|-- frontend/         React command-centre interface
+|-- configs/          Model registry and configuration
+|-- shared/           JSON contracts and frozen taxonomies
+|-- ml/               Isolated dataset preparation and validation tooling
+|-- scripts/          Setup, development, verification, and dataset scripts
+|-- docs/             Architecture, taxonomy, dataset, and operational documentation
+|-- tests/            Repository-level contract tests
+`-- demo/             Explicitly labelled deterministic demonstration assets
+```
 
 ## Verification
+
+Run the complete repository checks on Windows:
 
 ```powershell
 .\scripts\check.ps1
 git diff --check
 ```
 
-Targeted checks are also available:
+Application-only checks:
 
 ```powershell
-& .\.venv\Scripts\python -m pytest backend\tests -q
-& .\.venv\Scripts\python -m ruff check backend\app backend\tests
-npm.cmd --prefix frontend test
-npm.cmd --prefix frontend run lint
-npm.cmd --prefix frontend run build
+.\.venv\Scripts\python.exe -m ruff check backend
+Push-Location backend
+..\.venv\Scripts\python.exe -m pytest -q
+Pop-Location
+
+Push-Location frontend
+npm run lint
+npm test -- --run
+npm run build
+Pop-Location
 ```
 
-Inference adapter tests use injectable stub runtimes and do not require a GPU or checkpoint. A real model is only considered operational when its configured artifact and runtime load successfully.
+## Additional documentation
+
+- [`docs/FLOODSIGHT_MASTER_CONTEXT.md`](docs/FLOODSIGHT_MASTER_CONTEXT.md) - product scope, architecture, and implementation phases
+- [`docs/TAXONOMY.md`](docs/TAXONOMY.md) - product, segmentation, and detection taxonomies
+- [`docs/DATASETS.md`](docs/DATASETS.md) - dataset boundaries and preparation workflow
+- [`docs/DATASET_SERVER_RUNBOOK.md`](docs/DATASET_SERVER_RUNBOOK.md) - external dataset server operations
+- [`docs/PARALLEL_INTEGRATION.md`](docs/PARALLEL_INTEGRATION.md) - model/application integration notes
+
+## Data and safety boundaries
+
+- Keep datasets, archives, checkpoints, caches, and experiment runs outside this repository under explicit external paths.
+- Treat raw source datasets as immutable.
+- Do not infer or silently merge unknown dataset labels.
+- Treat image-relative routes as tactical visual guidance, not GIS distance or travel-time claims.
+- Require trained personnel to review priorities, routes, model availability, and current field conditions before acting.

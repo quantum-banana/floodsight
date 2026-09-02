@@ -1,16 +1,22 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useFrameIngestion } from "../hooks/useFrameIngestion";
 import { captureJpeg } from "../services/frameCapture";
-import { createIngestionSession, deleteIngestionSession } from "../services/ingestionApi";
+import {
+  completeIngestionSession,
+  createIngestionSession,
+  deleteIngestionSession,
+} from "../services/ingestionApi";
 import {
   openIngestionSocket,
   type IngestionSocketHandlers,
 } from "../services/ingestionSocket";
+import type { AggregateMetric, VideoAnalysisComplete } from "../types/ingestion";
 import { liveSnapshot } from "./fixtures";
 
 vi.mock("../services/ingestionApi", () => ({
+  completeIngestionSession: vi.fn(),
   createIngestionSession: vi.fn(),
   deleteIngestionSession: vi.fn().mockResolvedValue(undefined),
 }));
@@ -47,6 +53,76 @@ const session = {
   data_origin: "DERIVED_ANALYTIC" as const,
 };
 
+const aggregateMetric = (
+  value: number,
+  unit: AggregateMetric["unit"],
+  aggregation: AggregateMetric["aggregation"],
+): AggregateMetric => ({
+  value,
+  unit,
+  availability: "AVAILABLE",
+  aggregation,
+  supporting_frame_count: 2,
+  confidence: 0.9,
+  data_origin: "DERIVED_ANALYTIC",
+});
+
+const finalSnapshot = { ...liveSnapshot, frame_id: 9 };
+const completedAnalysis: VideoAnalysisComplete = {
+  type: "video_analysis_complete",
+  session_id: session.session_id,
+  state: "COMPLETE",
+  summary: {
+    session_id: session.session_id,
+    generated_at_ms: 1_725_000_010_000,
+    frames_accepted: 10,
+    frames_analyzed: 4,
+    frames_dropped: 1,
+    first_analyzed_frame_id: 0,
+    last_analyzed_frame_id: 9,
+    first_media_time_ms: 0,
+    last_media_time_ms: 9_000,
+    statistics: {
+      flooded_area_percent: aggregateMetric(38, "percent", "PEAK_FRESH_SEGMENTATION"),
+      people_detected: aggregateMetric(4, "count", "PEAK_SIMULTANEOUS_DIRECT_DETECTIONS"),
+      vehicles_detected: aggregateMetric(2, "count", "PEAK_SIMULTANEOUS_DIRECT_DETECTIONS"),
+      blocked_road_cells: aggregateMetric(2, "count", "PEAK_FRESH_SEGMENTATION"),
+      damaged_buildings: {
+        value: null,
+        unit: "count",
+        availability: "NOT_SUPPORTED",
+        aggregation: "NOT_APPLICABLE",
+        supporting_frame_count: 0,
+        confidence: null,
+        data_origin: "DERIVED_ANALYTIC",
+      },
+      building_damage_coverage_percent: aggregateMetric(8, "percent", "PEAK_FRESH_SEGMENTATION"),
+    },
+    detected_classes: [],
+    detected_classes_truncated: false,
+    priorities: [{
+      zone: liveSnapshot.zones[0],
+      source_frame_id: 5,
+      media_time_ms: 5_000,
+      supporting_update_count: 2,
+      segmentation_evidence_available: true,
+      detection_evidence_available: true,
+      building_damage_count_availability: "NOT_SUPPORTED",
+      associated_route: null,
+      data_origin: "DERIVED_ANALYTIC",
+    }],
+    priorities_truncated: false,
+    highest_priority_zone_id: liveSnapshot.zones[0].zone_id,
+    incident_severity: liveSnapshot.zones[0].severity,
+    segmentation_status: liveSnapshot.system_status.segmentation_details!,
+    detection_status: liveSnapshot.system_status.detection_details!,
+    inference_state: "LIVE",
+    responsible_ai_statement: "Human verification is required.",
+    data_origin: "DERIVED_ANALYTIC",
+  },
+  latest_result: finalSnapshot,
+};
+
 function videoFixture() {
   const video = document.createElement("video");
   let callback: VideoFrameRequestCallback | null = null;
@@ -79,6 +155,7 @@ describe("frame ingestion lifecycle", () => {
     sendFrame = vi.fn(() => true);
     close = vi.fn();
     vi.mocked(createIngestionSession).mockResolvedValue(session);
+    vi.mocked(completeIngestionSession).mockResolvedValue(completedAnalysis);
     vi.mocked(deleteIngestionSession).mockResolvedValue(undefined);
     vi.mocked(captureJpeg).mockResolvedValue({
       blob: { arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(8)) } as unknown as Blob,
@@ -101,6 +178,7 @@ describe("frame ingestion lifecycle", () => {
         detectorMode: "AERIAL_HIGH_RECALL",
         sourceReady: true,
         captureActive: true,
+        sourceComplete: false,
         sourceGeneration: 1,
       }),
     );
@@ -188,6 +266,7 @@ describe("frame ingestion lifecycle", () => {
       detectorMode: "AERIAL_HIGH_RECALL" as const,
       sourceReady: true,
       captureActive: true,
+      sourceComplete: false,
       sourceGeneration: 4,
     };
     const { result, rerender } = renderHook(
@@ -217,11 +296,242 @@ describe("frame ingestion lifecycle", () => {
         detectorMode: "AERIAL_HIGH_RECALL",
         sourceReady: true,
         captureActive: true,
+        sourceComplete: false,
         sourceGeneration: 8,
       }),
     );
 
     await waitFor(() => expect(result.current.metrics.connectionState).toBe("offline"));
     expect(result.current.metrics.lastError).toBe("Backend unavailable");
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("finalizes once after acknowledgements, accepts late intelligence, and resets for a new run", async () => {
+    let resolveCompletion: ((value: VideoAnalysisComplete) => void) | null = null;
+    vi.mocked(completeIngestionSession).mockImplementation(() => new Promise((resolve) => {
+      resolveCompletion = resolve;
+    }));
+    const base = {
+      videoElement: videoFixture().video,
+      sourceMode: "VIDEO_FILE" as const,
+      mediaOrigin: "USER_VIDEO_FILE" as const,
+      detectorMode: "AERIAL_HIGH_RECALL" as const,
+      sourceReady: true,
+      captureActive: false,
+    };
+    const { result, rerender } = renderHook(
+      ({ complete, generation }) => useFrameIngestion({
+        ...base,
+        sourceComplete: complete,
+        sourceGeneration: generation,
+      }),
+      { initialProps: { complete: false, generation: 1 } },
+    );
+    await waitFor(() => expect(openIngestionSocket).toHaveBeenCalledOnce());
+    act(() => handlers?.onOpen());
+
+    rerender({ complete: true, generation: 1 });
+    await waitFor(() => expect(result.current.completionState).toBe("FINALIZING"));
+    expect(completeIngestionSession).toHaveBeenCalledOnce();
+    expect(completeIngestionSession).toHaveBeenCalledWith(session.session_id);
+
+    const lateSnapshot = { ...liveSnapshot, frame_id: 8 };
+    act(() => handlers?.onIntelligence({
+      type: "frame_intelligence",
+      session_id: session.session_id,
+      frame_id: 8,
+      sequence: 3,
+      result: lateSnapshot,
+    }));
+    expect(result.current.intelligence?.frame_id).toBe(8);
+
+    await act(async () => resolveCompletion?.(completedAnalysis));
+    await waitFor(() => expect(result.current.completionState).toBe("COMPLETE"));
+    expect(result.current.completion).toEqual(completedAnalysis);
+    expect(result.current.intelligence?.frame_id).toBe(9);
+    expect(result.current.metrics.sessionState).toBe("COMPLETE");
+    expect(completeIngestionSession).toHaveBeenCalledOnce();
+
+    rerender({ complete: false, generation: 2 });
+    await waitFor(() => expect(result.current.completionState).toBe("IDLE"));
+    expect(result.current.completion).toBeNull();
+  });
+
+  it("does not send a capture that finishes encoding after video completion", async () => {
+    let resolveBuffer: ((value: ArrayBuffer) => void) | null = null;
+    vi.mocked(captureJpeg).mockResolvedValue({
+      blob: {
+        arrayBuffer: vi.fn(() => new Promise((resolve) => {
+          resolveBuffer = resolve;
+        })),
+      } as unknown as Blob,
+      width: 640,
+      height: 360,
+    });
+    const { video, getCallback } = videoFixture();
+    const base = {
+      videoElement: video,
+      sourceMode: "VIDEO_FILE" as const,
+      mediaOrigin: "USER_VIDEO_FILE" as const,
+      detectorMode: "AERIAL_HIGH_RECALL" as const,
+      sourceReady: true,
+      sourceGeneration: 6,
+    };
+    const { rerender } = renderHook(
+      ({ active, complete }) => useFrameIngestion({
+        ...base,
+        captureActive: active,
+        sourceComplete: complete,
+      }),
+      { initialProps: { active: true, complete: false } },
+    );
+    await waitFor(() => expect(openIngestionSocket).toHaveBeenCalledOnce());
+    act(() => handlers?.onOpen());
+    await waitFor(() => expect(getCallback()).not.toBeNull());
+    act(() => getCallback()?.(300, {} as VideoFrameCallbackMetadata));
+    await waitFor(() => expect(captureJpeg).toHaveBeenCalledOnce());
+
+    rerender({ active: false, complete: true });
+    await waitFor(() => expect(completeIngestionSession).toHaveBeenCalledOnce());
+    await act(async () => resolveBuffer?.(new ArrayBuffer(8)));
+
+    expect(sendFrame).not.toHaveBeenCalled();
+  });
+
+  it("retries a failed completion request on the same ingestion session", async () => {
+    vi.mocked(completeIngestionSession)
+      .mockRejectedValueOnce(new Error("Completion request timed out"))
+      .mockResolvedValueOnce(completedAnalysis);
+    const video = videoFixture().video;
+    const { result } = renderHook(() =>
+      useFrameIngestion({
+        videoElement: video,
+        sourceMode: "VIDEO_FILE",
+        mediaOrigin: "USER_VIDEO_FILE",
+        detectorMode: "AERIAL_HIGH_RECALL",
+        sourceReady: true,
+        captureActive: false,
+        sourceComplete: true,
+        sourceGeneration: 7,
+      }),
+    );
+
+    await waitFor(() => expect(result.current.completionState).toBe("ERROR"));
+    expect(completeIngestionSession).toHaveBeenCalledTimes(1);
+    expect(completeIngestionSession).toHaveBeenLastCalledWith(session.session_id);
+    expect(createIngestionSession).toHaveBeenCalledTimes(1);
+    expect(result.current.metrics.sessionId).toBe(session.session_id);
+
+    act(() => result.current.retry());
+
+    await waitFor(() => expect(result.current.completionState).toBe("COMPLETE"));
+    expect(completeIngestionSession).toHaveBeenCalledTimes(2);
+    expect(completeIngestionSession).toHaveBeenLastCalledWith(session.session_id);
+    expect(createIngestionSession).toHaveBeenCalledTimes(1);
+    expect(deleteIngestionSession).not.toHaveBeenCalled();
+    expect(result.current.completion).toEqual(completedAnalysis);
+  });
+
+  it("finalizes the same session when the frame socket fails after video end", async () => {
+    const { video, getCallback } = videoFixture();
+    const base = {
+      videoElement: video,
+      sourceMode: "VIDEO_FILE" as const,
+      mediaOrigin: "USER_VIDEO_FILE" as const,
+      detectorMode: "AERIAL_HIGH_RECALL" as const,
+      sourceReady: true,
+      sourceGeneration: 10,
+    };
+    const { result, rerender } = renderHook(
+      ({ active, complete }) => useFrameIngestion({
+        ...base,
+        captureActive: active,
+        sourceComplete: complete,
+      }),
+      { initialProps: { active: true, complete: false } },
+    );
+    await waitFor(() => expect(openIngestionSocket).toHaveBeenCalledOnce());
+    act(() => handlers?.onOpen());
+    await waitFor(() => expect(getCallback()).not.toBeNull());
+    act(() => getCallback()?.(300, {} as VideoFrameCallbackMetadata));
+    await waitFor(() => expect(sendFrame).toHaveBeenCalledOnce());
+
+    rerender({ active: false, complete: true });
+    expect(result.current.completionState).toBe("FINALIZING");
+    expect(completeIngestionSession).not.toHaveBeenCalled();
+
+    act(() => handlers?.onError());
+
+    await waitFor(() => expect(result.current.completionState).toBe("COMPLETE"));
+    expect(completeIngestionSession).toHaveBeenCalledOnce();
+    expect(completeIngestionSession).toHaveBeenCalledWith(session.session_id);
+    expect(createIngestionSession).toHaveBeenCalledOnce();
+    expect(deleteIngestionSession).not.toHaveBeenCalled();
+  });
+
+  it("finalizes the same session after an end-of-video acknowledgement timeout", async () => {
+    const { video, getCallback } = videoFixture();
+    const base = {
+      videoElement: video,
+      sourceMode: "VIDEO_FILE" as const,
+      mediaOrigin: "USER_VIDEO_FILE" as const,
+      detectorMode: "AERIAL_HIGH_RECALL" as const,
+      sourceReady: true,
+      sourceGeneration: 9,
+    };
+    const { result, rerender } = renderHook(
+      ({ active, complete }) => useFrameIngestion({
+        ...base,
+        captureActive: active,
+        sourceComplete: complete,
+      }),
+      { initialProps: { active: true, complete: false } },
+    );
+    await waitFor(() => expect(openIngestionSocket).toHaveBeenCalledOnce());
+    act(() => handlers?.onOpen());
+    await waitFor(() => expect(getCallback()).not.toBeNull());
+    vi.useFakeTimers();
+    await act(async () => {
+      getCallback()?.(300, {} as VideoFrameCallbackMetadata);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(sendFrame).toHaveBeenCalledOnce();
+    expect(result.current.metrics.capturedFrames).toBe(1);
+    expect(result.current.metrics.acknowledgedFrames).toBe(0);
+
+    rerender({ active: false, complete: true });
+    expect(result.current.completionState).toBe("FINALIZING");
+    expect(completeIngestionSession).not.toHaveBeenCalled();
+
+    act(() => vi.advanceTimersByTime(6_000));
+    vi.useRealTimers();
+
+    await waitFor(() => expect(completeIngestionSession).toHaveBeenCalledOnce());
+    expect(completeIngestionSession).toHaveBeenCalledWith(session.session_id);
+    expect(createIngestionSession).toHaveBeenCalledOnce();
+    expect(deleteIngestionSession).not.toHaveBeenCalled();
+    await waitFor(() => expect(result.current.completionState).toBe("COMPLETE"));
+
+    act(() => handlers?.onResult({
+      type: "frame_result",
+      session_id: session.session_id,
+      frame_id: 0,
+      accepted: true,
+      code: "accepted",
+      message: "Late acknowledgement.",
+      received_at_ms: 2,
+      processing_ms: 2,
+      byte_length: 8,
+      decoded_frame: { width: 640, height: 360, channels: 3 },
+      quality: null,
+      data_origin: "DERIVED_ANALYTIC",
+    }));
+    expect(result.current.completionState).toBe("COMPLETE");
+    expect(result.current.metrics.connectionState).toBe("stopped");
+    expect(result.current.metrics.lastError).toBeNull();
   });
 });

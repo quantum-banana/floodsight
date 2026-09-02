@@ -17,9 +17,10 @@ from app.schemas.ingestion import (
     IngestionSession,
     IngestionSessionCreate,
     IngestionSessionState,
+    VideoAnalysisComplete,
 )
 from app.schemas.live_result import DataOrigin
-from app.services.incident_reporting import build_incident_report
+from app.services.incident_reporting import build_incident_report, build_video_analysis_report
 from app.services.inference_coordinator import InferenceCoordinator
 from app.services.ingestion_sessions import IngestionSessionManager, SessionRecord
 
@@ -64,8 +65,21 @@ async def get_ingestion_session(request: Request, session_id: str) -> IngestionS
     summary="Stop and forget an ingestion session",
 )
 async def delete_ingestion_session(request: Request, session_id: str) -> Response:
+    manager = _manager(request)
+    try:
+        record = manager.get_record(session_id)
+    except AppError as exc:
+        if exc.code == "ingestion_session_not_found":
+            return Response(status_code=status.HTTP_204_NO_CONTENT)
+        raise
+    if record.state is IngestionSessionState.FINALIZING:
+        raise AppError(
+            status_code=409,
+            code="analysis_finalizing",
+            message="The video analysis is finalizing; wait for completion before deleting it.",
+        )
     _coordinator(request).close(session_id)
-    _manager(request).delete(session_id)
+    manager.delete(session_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -92,6 +106,34 @@ def _protocol_result(
     )
 
 
+def _analysis_closed_result(
+    record: SessionRecord,
+    *,
+    frame_id: int | None = None,
+) -> FrameResult:
+    """Reject post-finalization intake without recording a malformed-frame error."""
+    return FrameResult(
+        session_id=record.session_id,
+        frame_id=frame_id,
+        accepted=False,
+        code="analysis_closed",
+        message="Video analysis is finalizing or complete; no more frames are accepted.",
+        received_at_ms=int(time.time() * 1_000),
+        processing_ms=0,
+        byte_length=0,
+        decoded_frame=None,
+        quality=None,
+        data_origin=DataOrigin.DERIVED_ANALYTIC,
+    )
+
+
+def _analysis_is_closed(record: SessionRecord) -> bool:
+    return record.state in {
+        IngestionSessionState.FINALIZING,
+        IngestionSessionState.COMPLETE,
+    }
+
+
 async def _send_result(websocket: WebSocket, result: FrameResult) -> None:
     await websocket.send_json(result.model_dump(mode="json"))
 
@@ -116,11 +158,55 @@ async def get_latest_intelligence(request: Request, session_id: str) -> FrameInt
 @router.get(
     "/{session_id}/report",
     response_model=IncidentReport,
-    summary="Generate a report from the latest backend intelligence state",
+    summary="Generate a report from live or completed backend intelligence",
 )
 async def get_live_incident_report(request: Request, session_id: str) -> IncidentReport:
+    record = _manager(request).get_record(session_id)
+    if record.state is IngestionSessionState.FINALIZING:
+        raise AppError(
+            status_code=409,
+            code="analysis_finalizing",
+            message="The whole-video analysis is still finalizing; retry when it is complete.",
+        )
+    completed = _coordinator(request).completed(session_id)
+    if completed is not None:
+        return build_video_analysis_report(completed)
     latest = await get_latest_intelligence(request, session_id)
     return build_incident_report(latest.result)
+
+
+@router.post(
+    "/{session_id}/complete",
+    response_model=VideoAnalysisComplete,
+    summary="Finalize a video session and return whole-video findings",
+)
+async def complete_video_analysis(
+    request: Request,
+    session_id: str,
+) -> VideoAnalysisComplete:
+    manager = _manager(request)
+    record = manager.get_record(session_id)
+    if record.request.source_mode.value != "VIDEO_FILE":
+        raise AppError(
+            status_code=409,
+            code="video_completion_not_supported",
+            message="Explicit whole-video completion is only available for video-file sessions.",
+        )
+    manager.touch(record, IngestionSessionState.FINALIZING)
+    try:
+        completed = await _coordinator(request).finalize(
+            session_id,
+            frames_accepted=record.counters.frames_accepted,
+            frames_dropped=record.counters.inference_frames_dropped,
+        )
+    except asyncio.CancelledError:
+        manager.touch(record, IngestionSessionState.IDLE)
+        raise
+    except Exception:
+        manager.touch(record, IngestionSessionState.IDLE)
+        raise
+    manager.touch(record, IngestionSessionState.COMPLETE)
+    return completed
 
 
 @ws_router.websocket("/ws/ingest/sessions/{session_id}/frames")
@@ -143,6 +229,10 @@ async def ingest_frames(websocket: WebSocket, session_id: str) -> None:
         return
 
     await websocket.accept()
+    if _analysis_is_closed(record):
+        await _send_result(websocket, _analysis_closed_result(record))
+        await websocket.close(code=1_008, reason="Video analysis is closed")
+        return
     manager.touch(record, IngestionSessionState.ACTIVE)
     send_lock = asyncio.Lock()
 
@@ -156,6 +246,9 @@ async def ingest_frames(websocket: WebSocket, session_id: str) -> None:
             if metadata_message["type"] == "websocket.disconnect":
                 break
             metadata_text = metadata_message.get("text")
+            if _analysis_is_closed(record):
+                await send_payload(_analysis_closed_result(record))
+                break
             if metadata_text is None:
                 await send_payload(
                     _protocol_result(
@@ -193,34 +286,44 @@ async def ingest_frames(websocket: WebSocket, session_id: str) -> None:
                 )
                 continue
 
-            result, packet = process_frame_with_packet(record, metadata, payload, manager.settings)
-            model_status = websocket.app.state.inference_pipeline.status()
-            result = result.model_copy(
-                update={
-                    "inference_state": model_status.inference_state,
-                    "segmentation_status": model_status.segmentation,
-                    "detection_status": model_status.detection,
-                }
-            )
-            manager.touch(record, IngestionSessionState.ACTIVE)
-            await send_payload(result)
-            if result.accepted and packet is not None:
-                pipeline = websocket.app.state.inference_pipeline
-                if pipeline.should_process(metadata.frame_id):
-                    record.counters.inference_frames_submitted += 1
+            analysis_closed = False
+            async with send_lock:
+                if _analysis_is_closed(record):
+                    analysis_closed = True
+                    result = _analysis_closed_result(record, frame_id=metadata.frame_id)
+                else:
+                    result, packet = process_frame_with_packet(
+                        record, metadata, payload, manager.settings
+                    )
+                    model_status = websocket.app.state.inference_pipeline.status()
+                    result = result.model_copy(
+                        update={
+                            "inference_state": model_status.inference_state,
+                            "segmentation_status": model_status.segmentation,
+                            "detection_status": model_status.detection,
+                        }
+                    )
+                    manager.touch(record, IngestionSessionState.ACTIVE)
+                    if result.accepted and packet is not None:
+                        pipeline = websocket.app.state.inference_pipeline
+                        if pipeline.should_process(metadata.frame_id):
+                            record.counters.inference_frames_submitted += 1
 
-                    async def publish(message: FrameIntelligence) -> None:
-                        record.counters.intelligence_updates_sent += 1
-                        await send_payload(message)
+                            async def publish(message: FrameIntelligence) -> None:
+                                record.counters.intelligence_updates_sent += 1
+                                await send_payload(message)
 
-                    if not _coordinator(websocket).submit(
-                        session_id=session_id,
-                        frame=packet.bgr,
-                        metadata=metadata,
-                        callback=publish,
-                        detector_mode=record.request.detector_mode,
-                    ):
-                        record.counters.inference_frames_dropped += 1
+                            if not _coordinator(websocket).submit(
+                                session_id=session_id,
+                                frame=packet.bgr,
+                                metadata=metadata,
+                                callback=publish,
+                                detector_mode=record.request.detector_mode,
+                            ):
+                                record.counters.inference_frames_dropped += 1
+                await websocket.send_json(result.model_dump(mode="json"))
+            if analysis_closed:
+                break
     except WebSocketDisconnect:
         logger.debug(
             "Ingestion WebSocket client disconnected",
@@ -230,7 +333,10 @@ async def ingest_frames(websocket: WebSocket, session_id: str) -> None:
         _coordinator(websocket).disconnect(session_id)
         try:
             active_record = manager.get_record(session_id)
-            if active_record is record:
+            if active_record is record and record.state not in (
+                IngestionSessionState.FINALIZING,
+                IngestionSessionState.COMPLETE,
+            ):
                 manager.touch(record, IngestionSessionState.IDLE)
         except AppError:
             pass

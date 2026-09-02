@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import Field
 
 from app.schemas.base import ContractModel
@@ -55,3 +57,7 @@ class IncidentReport(ContractModel):
     reason_codes: list[str] = Field(default_factory=list)
     route: Route | None = None
     model_provenance: dict[str, str] = Field(default_factory=dict)
+    analysis_scope: Literal["LATEST_FRAME", "WHOLE_VIDEO"] = "LATEST_FRAME"
+    aggregate_availability: dict[str, str] = Field(default_factory=dict)
+    severity_established: bool = True
+    priorities_truncated: bool = False

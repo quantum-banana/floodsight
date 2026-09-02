@@ -169,7 +169,11 @@ class TemporalZoneTracker:
             risk_signal=latest.risk_signal,
             temporal_samples=len(history),
             stale=stale,
-            sources=latest.sources,
+            # Smoothed values summarize the whole retained window, so provenance
+            # must summarize that same window rather than only the latest candidate.
+            sources=list(
+                dict.fromkeys(source for item in history for source in item.sources)
+            ),
         )
 
 
