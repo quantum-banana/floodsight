@@ -243,24 +243,24 @@ describe("FloodSight command center", () => {
     expect(within(selector).getByRole("button", { name: "Video" })).toHaveAttribute("aria-pressed", "true");
     expect(within(selector).getByRole("button", { name: "Live camera" })).toBeEnabled();
     expect(screen.getAllByLabelText("Choose video").length).toBeGreaterThan(0);
-    expect(screen.getByLabelText("Detection profile: High recall")).toBeInTheDocument();
-    expect(vi.mocked(useFrameIngestion).mock.calls.at(-1)?.[0].detectorMode).toBe("AERIAL_HIGH_RECALL");
+    expect(screen.getByLabelText("Detection profile: Standard")).toBeInTheDocument();
+    expect(vi.mocked(useFrameIngestion).mock.calls.at(-1)?.[0].detectorMode).toBe("STANDARD");
     expect(screen.queryByText(/simulation|replay|demo scenario/i)).not.toBeInTheDocument();
   });
 
   it("allows an operator to change the detector profile explicitly", () => {
     render(<CommandCenter />);
 
-    fireEvent.click(screen.getByLabelText("Detection profile: High recall"));
+    fireEvent.click(screen.getByLabelText("Detection profile: Standard"));
     const detectorSelector = screen.getByRole("group", { name: "Detector inference mode" });
-    expect(within(detectorSelector).getByRole("button", { name: /High recall/i })).toHaveAttribute(
+    expect(within(detectorSelector).getByRole("button", { name: /Standard/i })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
-    fireEvent.click(within(detectorSelector).getByRole("button", { name: /Standard/i }));
+    fireEvent.click(within(detectorSelector).getByRole("button", { name: /^Aerial\b/i }));
 
-    expect(vi.mocked(useFrameIngestion).mock.calls.at(-1)?.[0].detectorMode).toBe("STANDARD");
-    expect(screen.getByLabelText("Detection profile: Standard")).toBeInTheDocument();
+    expect(vi.mocked(useFrameIngestion).mock.calls.at(-1)?.[0].detectorMode).toBe("AERIAL");
+    expect(screen.getByLabelText("Detection profile: Aerial")).toBeInTheDocument();
   });
 
   it("locks the detector profile after analysis starts and through completion", async () => {
@@ -281,18 +281,18 @@ describe("FloodSight command center", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Analyse" }));
     await screen.findByRole("button", { name: "Pause media" });
 
-    const profile = screen.getByLabelText("Detection profile: High recall");
+    const profile = screen.getByLabelText("Detection profile: Standard");
     expect(profile).toHaveAttribute("aria-disabled", "true");
     expect(profile).toHaveAttribute("title", expect.stringMatching(/locked for this analysis/i));
     const standardButton = document.querySelector<HTMLButtonElement>('.detector-profile-menu button[aria-pressed="false"]')!;
     expect(standardButton).toBeDisabled();
     fireEvent.click(standardButton);
-    expect(vi.mocked(useFrameIngestion).mock.calls.at(-1)?.[0].detectorMode).toBe("AERIAL_HIGH_RECALL");
+    expect(vi.mocked(useFrameIngestion).mock.calls.at(-1)?.[0].detectorMode).toBe("STANDARD");
 
     fireEvent.ended(video);
-    expect(screen.getByLabelText("Detection profile: High recall")).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByLabelText("Detection profile: Standard")).toHaveAttribute("aria-disabled", "true");
     fireEvent.click(screen.getByRole("button", { name: "Stop media" }));
-    expect(screen.getByLabelText("Detection profile: High recall")).toHaveAttribute("aria-disabled", "false");
+    expect(screen.getByLabelText("Detection profile: Standard")).toHaveAttribute("aria-disabled", "false");
   });
 
   it("locks source controls only while completion is finalizing", () => {

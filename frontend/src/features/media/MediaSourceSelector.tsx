@@ -26,7 +26,7 @@ const detectorModes: Array<{
 ];
 
 const detectorModeLabel = (mode: DetectorInferenceMode) =>
-  detectorModes.find((item) => item.mode === mode)?.label ?? "High recall";
+  detectorModes.find((item) => item.mode === mode)?.label ?? "Standard";
 
 const formatBytes = (bytes: number) => bytes >= 1024 * 1024
   ? `${(bytes / 1024 / 1024).toFixed(1)} MB`

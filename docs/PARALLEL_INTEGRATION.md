@@ -42,8 +42,8 @@ This branch integrates application-facing inference and rescue intelligence. It 
 
 ## Artifact-gated status
 
-- Segmentation integration slot: enabled, taxonomy `segmentation-taxonomy-v2`, external path `FLOODSIGHT_SEGMENTATION_CHECKPOINT`. The locally verified integration artifact is the epoch-6 production handoff (mIoU `0.583700242954744`); the artifact remains outside Git.
-- Final detection slot: present but disabled until a verified FloodSight/VisDrone checkpoint is supplied through `FLOODSIGHT_DETECTION_CHECKPOINT`.
+- Segmentation final slot: enabled, taxonomy `segmentation-taxonomy-v2`, external path `FLOODSIGHT_SEGMENTATION_CHECKPOINT`. The hackathon release identity is the epoch-33 production handoff (mIoU `0.6531609738189703`); the artifact remains outside Git.
+- Final detection slot: enabled for the verified epoch-12 VisDrone-fine-tuned YOLO11l handoff supplied externally through `FLOODSIGHT_DETECTION_CHECKPOINT`. Its registry provenance is `REAL_MODEL`.
 - Pretrained detection fallback: the official Ultralytics YOLO11l COCO-pretrained asset from release `v8.4.0`, SHA-256 `9ebd0e09d59811db4b1d61e2bc6730649608b1ac47f8dd01e2da6bca7c20023f`, is pinned in the registry and supplied externally through `FLOODSIGHT_DETECTION_FALLBACK_CHECKPOINT`. It is always labelled `PRETRAINED_FALLBACK`, never final or VisDrone fine-tuned.
 - Detector mode is selected explicitly when an ingestion session is created. `STANDARD` is the
   efficient full-frame path. `AERIAL` adds full-frame-plus-tile fusion for small drone-view

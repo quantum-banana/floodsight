@@ -47,7 +47,7 @@ const operationalLabel = (state: string, mediaState: MediaSourceState, hasIntell
 export function CommandCenter({ demoMode = false }: CommandCenterProps) {
   const demo = useDemoIncident(demoMode);
   const media = useMediaSource(demoMode ? "SIMULATION" : "VIDEO_FILE");
-  const [detectorMode, setDetectorMode] = useState<DetectorInferenceMode>("AERIAL_HIGH_RECALL");
+  const [detectorMode, setDetectorMode] = useState<DetectorInferenceMode>("STANDARD");
   const ingestion = useFrameIngestion({
     videoElement: media.videoElement,
     sourceMode: media.mode === "SIMULATION" ? null : media.mode,
